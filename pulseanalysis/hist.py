@@ -53,12 +53,12 @@ def distToEV(values, peaks=e_peaks, drawPlot=False):
 	return energies
 
 	
-def getVariances(energies, drawPlot=False, peaks=e_peaks):
+def getVariances(data, drawPlot=False, peaks=e_peaks):
 	# find peaks in data
-	x = np.linspace(np.amin(energies), np.amax(energies), 1000)
-	kernel = stats.gaussian_kde(energies)
-	energies_dist = kernel(x)
-	peak_indices, properties = find_peaks(energies_dist, prominence=0, height=0)
+	x = np.linspace(np.amin(data), np.amax(data), 1000)
+	kernel = stats.gaussian_kde(data)
+	dist = kernel(x)
+	peak_indices, properties = find_peaks(dist, prominence=0, height=0)
 
 	# calculate half-max height as percentage relative to prominence for each peak
 	prominences = properties["prominences"]
@@ -66,26 +66,25 @@ def getVariances(energies, drawPlot=False, peaks=e_peaks):
 	halfmax_adj = 1-(((0.5*heights)-(heights-prominences))/prominences)
 
 	# conversion from samples to eV
-	e_scale = (e_peaks[1] - e_peaks[0])/np.abs(peak_indices[0] - peak_indices[1])
-	e_first = e_peaks[0] - (peak_indices[0] * e_scale)
+	slope = np.abs((x[peak_indices[0]] - x[peak_indices[1]])/(peak_indices[0] - peak_indices[1]))
+	intercept = x[peak_indices[0]] - (peak_indices[0] * slope)
 
 	# create array to fill with fwhm data
 	#wshape = np.vstack(peak_widths(energies_dist, peak_indices, rel_height=halfmax_adj[0])).shape
 	widths = np.zeros(shape = (4,2))
 
 	# compute fwhm
-	widths[:,0] = np.vstack(peak_widths(energies_dist, np.array([peak_indices[0]]), rel_height=halfmax_adj[0]))[:,0]
-	widths[:,1] = np.vstack(peak_widths(energies_dist, np.array([peak_indices[1]]), rel_height=halfmax_adj[0]))[:,0]
+	widths[:,0] = np.vstack(peak_widths(dist, np.array([peak_indices[0]]), rel_height=halfmax_adj[0]))[:,0]
+	widths[:,1] = np.vstack(peak_widths(dist, np.array([peak_indices[1]]), rel_height=halfmax_adj[0]))[:,0]
 
 	# compute variance
-	var = (e_scale*widths[0])/(2*np.sqrt(2*np.log(2)))
-	print("Estimated Variance of Peak #1: {:.4f} eV".format(var[0]))
-	print("Estimated Variance of Peak #2: {:.4f} eV".format(var[1]))
+	var = (slope*widths[0])/(2*np.sqrt(2*np.log(2)))
+	print("Estimated Variance of Peak #1: {:.4f} Units".format(var[0]))
+	print("Estimated Variance of Peak #2: {:.4f} Units".format(var[1]))
 	
 	if drawPlot:
-		# plot in energy space
-		e_space = np.linspace(e_first, e_first+e_scale*999, 1000)
-		plt.plot(e_space, energies_dist)
-		plt.plot(peak_indices*e_scale + e_first, energies_dist[peak_indices], "x")
-		plt.hlines(widths[1], widths[2]*e_scale+e_first, widths[3]*e_scale+e_first, color="C2")
+		# plot
+		plt.plot(x, dist)
+		plt.plot(peak_indices*slope + intercept, dist[peak_indices], "x")
+		plt.hlines(widths[1], widths[2]*slope+intercept, widths[3]*slope+intercept, color="C2")
 		plt.show()
