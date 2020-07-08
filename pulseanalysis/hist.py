@@ -18,10 +18,41 @@ e_peaks = np.array([e_low, e_high])
 
 def benchmarkEnergies(traces):
 	# calculate pulse energies here
-	energies = np.sum((traces - np.median(traces, axis=1, keepdims=True)), axis=1)
+	values = np.sum((traces - np.median(traces, axis=1, keepdims=True)), axis=1)
+
+	return values
+
+def distToEV(values, peaks=e_peaks, drawPlot=False):
+	value_space  = np.linspace(np.amin(values), np.amax(values), 1000)
+	kernel = stats.gaussian_kde(values)
+	values_dist = kernel(value_space)
+	peak_indices, properties = find_peaks(values_dist, prominence=0, height=0)
+	heights = properties["peak_heights"]
+
+	# conversions from value space to energy space
+	e_scale = np.abs((e_peaks[1] - e_peaks[0])/(value_space[peak_indices[0]] - value_space[peak_indices[1]]))
 	
+	
+	if heights[0] > heights[1]:
+		e_first = e_peaks[0] - (value_space[peak_indices[0]] * e_scale)
+	else:
+		e_scale = -e_scale
+		e_first = e_peaks[1] - (value_space[peak_indices[0]] * e_scale)
+
+	energies = values*e_scale + e_first
+
+	if drawPlot:
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.hist(energies, bins='auto')
+		ax.set_xlabel("Energy [eV]")
+		ax.set_ylabel("Counts")
+		ax.set_title("Distribution of Energies")
+		plt.show()
+
 	return energies
 
+	
 def getVariances(energies, drawPlot=False, peaks=e_peaks):
 	# find peaks in data
 	x = np.linspace(np.amin(energies), np.amax(energies), 1000)
@@ -58,4 +89,3 @@ def getVariances(energies, drawPlot=False, peaks=e_peaks):
 		plt.plot(peak_indices*e_scale + e_first, energies_dist[peak_indices], "x")
 		plt.hlines(widths[1], widths[2]*e_scale+e_first, widths[3]*e_scale+e_first, color="C2")
 		plt.show()
-
