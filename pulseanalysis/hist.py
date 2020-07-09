@@ -57,6 +57,51 @@ def distToEV(values, peaks=e_peaks, drawPlot=False):
 
 	return energies
 
+def testBW(data, drawPlot=True):
+	
+	scale = 1
+
+	x = np.linspace(np.amin(data), np.amax(data), 1000)
+	kernel = stats.gaussian_kde(data)
+	bw_scott = kernel.factor
+	print("Scott BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))	
+
+	dist1 = scale*kernel(x)
+	
+	kernel.set_bandwidth(bw_method='silverman')
+	bw_silverman = kernel.factor	
+	print("Silverman BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))	
+	dist2 = scale*kernel(x)
+
+	kernel.set_bandwidth(bw_method=.05)
+	print("Const BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))	
+	dist3 = scale*kernel(x)
+
+	kernel.set_bandwidth(bw_method=.1)
+	print("Const BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))
+	dist4 = scale*kernel(x)
+
+	kernel.set_bandwidth(bw_method=.15)
+	print("Const BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))
+	dist5 = scale*kernel(x)
+
+	kernel.set_bandwidth(bw_method=.3)
+	print("Const BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))
+	dist6 = scale*kernel(x)
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.hist(data, bins='auto', density=True)
+	ax.plot(x, dist1, label='Scott (default) {:.4f}'.format(bw_scott))
+	ax.plot(x, dist2, label='Silverman {:.4f}'.format(bw_silverman))
+	ax.plot(x, dist3, label='Const .05', linestyle='dashed', linewidth=2)
+	ax.plot(x, dist4, label='Const .10', linestyle='dashed', linewidth=2)
+	ax.plot(x, dist5, label='Const .15', linestyle='dashed', linewidth=2)
+	ax.plot(x, dist6, label='Const .30', linestyle='dashed', linewidth=2)
+	ax.legend()
+	ax.set_title("BW Comparison")
+	
+	plt.show()
 	
 def getFWHM(data, drawPlot=False, peaks=e_peaks):
 	# find peaks in data
