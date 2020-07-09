@@ -78,7 +78,7 @@ def getVariances(data, drawPlot=False, peaks=e_peaks):
 	widths[:,1] = np.vstack(peak_widths(dist, np.array([peak_indices[1]]), rel_height=halfmax_adj[0]))[:,0]
 
 	# compute variance
-	var = (slope*widths[0])/(2*np.sqrt(2*np.log(2)))
+	var = slope*widths[0]
 	print("Estimated Variance of Peak #1: {:.4f} Units".format(var[0]))
 	print("Estimated Variance of Peak #2: {:.4f} Units".format(var[1]))
 	
@@ -98,7 +98,7 @@ def compareDist(data1, data2, nbin=300, drawPlot='True'):
 	print("Data1:\n")
 	print("Estimated Variance of Peak #1: {:.4f} Units".format(var1[0]))
 	print("Estimated Variance of Peak #2: {:.4f} Units".format(var1[1]))
-	print("\n")
+	print("\nData2:")
 	print("Estimated Variance of Peak #1: {:.4f} Units".format(var2[0]))
 	print("Estimated Variance of Peak #2: {:.4f} Units".format(var2[1]))
 
