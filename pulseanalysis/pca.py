@@ -4,6 +4,8 @@ import matplotlib
 matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 
+import pulseanalysis.hist as hist
+
 directory = "./data"
 
 def loadTraces(dir=directory):
@@ -25,7 +27,8 @@ def generate2DScatter(traces=None, drawPlot=False):
 	vector in this space. Set drawPlot to False to supress plot.
 	'''
 
-	if traces==None:
+	if not isinstance(traces, (np.ndarray)):
+		print("generate2DScatter(): No traces given, getting default traces...")
 		traces = loadTraces()
 
 	nPoints = traces.shape[0]
@@ -65,7 +68,8 @@ def project2DScatter(points=None, direction=[8,5], drawPlot=False):
 	containing 1D data.
 	'''
 
-	if points==None:
+	if not isinstance(points, (list, np.ndarray)):
+		print("project2DScatter(): No points given, getting default points...")
 		points = generate2DScatter()
 
 	sym = np.array(direction)
@@ -82,6 +86,14 @@ def project2DScatter(points=None, direction=[8,5], drawPlot=False):
 		plt.show()
 
 	return proj
+
+def getPCAEnergies():
+	traces = loadTraces()
+	points = generate2DScatter(traces)
+	values = project2DScatter(points)
+	energies = hist.distToEV(values)
+
+	return energies
 
 #fig1 = plt.figure()
 #ax1 = fig1.add_subplot(121)
