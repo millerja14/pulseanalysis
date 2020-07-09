@@ -20,7 +20,7 @@ def benchmarkEnergies(traces):
 	# calculate pulse energies here
 	values = np.sum((traces - np.median(traces, axis=1, keepdims=True)), axis=1)
 
-	return values
+	return distToEV(values)
 
 def distToEV(values, peaks=e_peaks, drawPlot=False):
 	value_space  = np.linspace(np.amin(values), np.amax(values), 1000)
