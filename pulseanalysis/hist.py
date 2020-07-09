@@ -53,7 +53,7 @@ def distToEV(values, peaks=e_peaks, drawPlot=False):
 	return energies
 
 	
-def getVariances(data, drawPlot=False, peaks=e_peaks):
+def getFWHM(data, drawPlot=False, peaks=e_peaks):
 	# find peaks in data
 	x = np.linspace(np.amin(data), np.amax(data), 1000)
 	kernel = stats.gaussian_kde(data)
@@ -78,9 +78,9 @@ def getVariances(data, drawPlot=False, peaks=e_peaks):
 	widths[:,1] = np.vstack(peak_widths(dist, np.array([peak_indices[1]]), rel_height=halfmax_adj[0]))[:,0]
 
 	# compute variance
-	var = slope*widths[0]
-	print("Estimated Variance of Peak #1: {:.4f} Units".format(var[0]))
-	print("Estimated Variance of Peak #2: {:.4f} Units".format(var[1]))
+	fwhm = slope*widths[0]
+	#print("Estimated FWHM of Peak #1: {:.4f} Units".format(fwhm[0]))
+	#print("Estimated FWHM of Peak #2: {:.4f} Units".format(fwhm[1]))
 	
 	if drawPlot:
 		# plot
@@ -89,23 +89,23 @@ def getVariances(data, drawPlot=False, peaks=e_peaks):
 		plt.hlines(widths[1], widths[2]*slope+intercept, widths[3]*slope+intercept, color="C2")
 		plt.show()
 
-	return var
+	return fwhm
 
 def compareDist(data1, data2, nbin=300, drawPlot='True'):
-	var1 = getVariances(data1)
-	var2 = getVariances(data2)	
+	fwhm1 = getFWHM(data1)
+	fwhm2 = getFWHM(data2)	
 	
-	print("Data1:\n")
-	print("Estimated Variance of Peak #1: {:.4f} Units".format(var1[0]))
-	print("Estimated Variance of Peak #2: {:.4f} Units".format(var1[1]))
+	print("Data1:")
+	print("Estimated FWHM of Peak #1: {:.4f} Units".format(fwhm1[0]))
+	print("Estimated FWHM of Peak #2: {:.4f} Units".format(fwhm1[1]))
 	print("\nData2:")
-	print("Estimated Variance of Peak #1: {:.4f} Units".format(var2[0]))
-	print("Estimated Variance of Peak #2: {:.4f} Units".format(var2[1]))
+	print("Estimated FWHM of Peak #1: {:.4f} Units".format(fwhm2[0]))
+	print("Estimated FWHM of Peak #2: {:.4f} Units".format(fwhm2[1]))
 
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
-	ax.hist(data1, nbin, alpha=0.5, label="Variances: [{:.4f}, {:.4f}]".format(*var1))
-	ax.hist(data2, nbin, alpha=0.5, label="Variances: [{:.4f}, {:.4f}]".format(*var2))
+	ax.hist(data1, nbin, alpha=0.5, label="FWHMs: [{:.4f}, {:.4f}]".format(*fwhm1))
+	ax.hist(data2, nbin, alpha=0.5, label="FWHMs: [{:.4f}, {:.4f}]".format(*fwhm2))
 	ax.legend(loc='upper right')
 	
 	plt.show()
