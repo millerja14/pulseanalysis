@@ -88,3 +88,26 @@ def getVariances(data, drawPlot=False, peaks=e_peaks):
 		plt.plot(peak_indices*slope + intercept, dist[peak_indices], "x")
 		plt.hlines(widths[1], widths[2]*slope+intercept, widths[3]*slope+intercept, color="C2")
 		plt.show()
+
+	return var
+
+def compareDist(data1, data2, nbin=300, drawPlot='True'):
+	var1 = getVariances(data1)
+	var2 = getVariances(data2)	
+	
+	print("Data1:\n")
+	print("Estimated Variance of Peak #1: {:.4f} Units".format(var1[0]))
+	print("Estimated Variance of Peak #2: {:.4f} Units".format(var1[1]))
+	print("\n")
+	print("Estimated Variance of Peak #1: {:.4f} Units".format(var2[0]))
+	print("Estimated Variance of Peak #2: {:.4f} Units".format(var2[1]))
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.hist(data1, nbin, alpha=0.5, label="Variances: [{:.4f}, {:.4f}]".format(*var1))
+	ax.hist(data2, nbin, alpha=0.5, label="Variances: [{:.4f}, {:.4f}]".format(*var2))
+	ax.legend(loc='upper right')
+	
+	plt.show()
+	
+
