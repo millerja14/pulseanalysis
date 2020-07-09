@@ -5,19 +5,7 @@ matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 
 import pulseanalysis.hist as hist
-
-directory = "./data"
-
-def loadTraces(dir=directory):
-	
-	'''
-	Load pulse traces from MKID data at default directory.
-	'''
-
-	loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
-	traces = loop.pulses[0].p_trace
-
-	return traces
+import pulseanalysis.data as mkid
 
 def generate2DScatter(traces=None, drawPlot=False):
 	
@@ -29,7 +17,7 @@ def generate2DScatter(traces=None, drawPlot=False):
 
 	if not isinstance(traces, (np.ndarray)):
 		print("generate2DScatter(): No traces given, getting default traces...")
-		traces = loadTraces()
+		traces = mkid.loadTraces()
 
 	nPoints = traces.shape[0]
 
@@ -88,7 +76,7 @@ def project2DScatter(points=None, direction=[8,5], drawPlot=False):
 	return proj
 
 def getPCAEnergies():
-	traces = loadTraces()
+	traces = mkid.loadTraces()
 	points = generate2DScatter(traces)
 	values = project2DScatter(points)
 	energies = hist.distToEV(values)

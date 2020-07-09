@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import scipy.stats as stats
 from scipy.signal import find_peaks, peak_widths
 
-#directory = './data'
+import pulseanalysis.data as mkid
 
 # expected energy peaks in eV
 e_high = 6490
@@ -16,7 +16,12 @@ e_peaks = np.array([e_low, e_high])
 #loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
 #traces = loop.pulses[0].p_trace
 
-def benchmarkEnergies(traces):
+def benchmarkEnergies(traces=None):
+	
+	if not isinstance(traces, (np.ndarray)):
+		print("benchmarkEnergies(): No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+	
 	# calculate pulse energies here
 	values = np.sum((traces - np.median(traces, axis=1, keepdims=True)), axis=1)
 
