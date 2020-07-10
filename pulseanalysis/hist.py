@@ -11,6 +11,7 @@ import pulseanalysis.data as mkid
 # expected energy peaks in eV
 e_high = 6490
 e_low = 5900
+e_cutoff = 6250
 e_peaks = np.array([e_low, e_high])
 
 #loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
@@ -114,6 +115,8 @@ def getFWHM(data, drawPlot=False, peaks=e_peaks):
 	kernel = stats.gaussian_kde(data)
 	dist = kernel(x)
 	peak_indices, properties = find_peaks(dist, prominence=0, height=0)
+	npeaks = peak_indices.size	
+
 
 	# calculate half-max height as percentage relative to prominence for each peak
 	prominences = properties["prominences"]
@@ -121,27 +124,29 @@ def getFWHM(data, drawPlot=False, peaks=e_peaks):
 	halfmax_adj = 1-(((0.5*heights)-(heights-prominences))/prominences)
 
 	# conversion from samples to eV
-	slope = np.abs((x[peak_indices[0]] - x[peak_indices[1]])/(peak_indices[0] - peak_indices[1]))
-	intercept = x[peak_indices[0]] - (peak_indices[0] * slope)
+	slope = np.abs(x[1] - x[0])
+	intercept = x[0]
 
 	# create array to fill with fwhm data
 	#wshape = np.vstack(peak_widths(energies_dist, peak_indices, rel_height=halfmax_adj[0])).shape
-	widths = np.zeros(shape = (4,2))
+	widths = np.zeros(shape = (4, npeaks))
 
 	# compute fwhm
-	widths[:,0] = np.vstack(peak_widths(dist, np.array([peak_indices[0]]), rel_height=halfmax_adj[0]))[:,0]
-	widths[:,1] = np.vstack(peak_widths(dist, np.array([peak_indices[1]]), rel_height=halfmax_adj[0]))[:,0]
-
+	for i in range(npeaks):
+		widths[:,i] = np.vstack(peak_widths(dist, np.array([peak_indices[i]]), rel_height=halfmax_adj[0]))[:,0]
+	
 	# compute variance
 	fwhm = slope*widths[0]
 	#print("Estimated FWHM of Peak #1: {:.4f} Units".format(fwhm[0]))
 	#print("Estimated FWHM of Peak #2: {:.4f} Units".format(fwhm[1]))
 	
 	if drawPlot:
-		# plot
-		plt.plot(x, dist)
-		plt.plot(peak_indices*slope + intercept, dist[peak_indices], "x")
-		plt.hlines(widths[1], widths[2]*slope+intercept, widths[3]*slope+intercept, color="C2")
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.hist(data, bins='auto', density=True)
+		ax.plot(x, dist)
+		ax.plot(peak_indices*slope + intercept, dist[peak_indices], "x")
+		ax.hlines(widths[1], widths[2]*slope+intercept, widths[3]*slope+intercept, color="C2")
 		plt.show()
 
 	return fwhm
