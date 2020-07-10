@@ -109,7 +109,7 @@ def testBW(data, desc=""):
 	
 	plt.show()
 	
-def getFWHM(data, drawPlot=False, peaks=e_peaks):
+def getFWHM(data, drawPlot=False):
 	# find peaks in data
 	x = np.linspace(np.amin(data), np.amax(data), 1000)
 	kernel = stats.gaussian_kde(data)
@@ -125,7 +125,6 @@ def getFWHM(data, drawPlot=False, peaks=e_peaks):
 
 	# conversion from samples to eV
 	slope = np.abs(x[1] - x[0])
-	intercept = x[0]
 
 	# create array to fill with fwhm data
 	#wshape = np.vstack(peak_widths(energies_dist, peak_indices, rel_height=halfmax_adj[0])).shape
@@ -145,8 +144,8 @@ def getFWHM(data, drawPlot=False, peaks=e_peaks):
 		ax = fig.add_subplot(111)
 		ax.hist(data, bins='auto', density=True)
 		ax.plot(x, dist)
-		ax.plot(peak_indices*slope + intercept, dist[peak_indices], "x")
-		ax.hlines(widths[1], widths[2]*slope+intercept, widths[3]*slope+intercept, color="C2")
+		ax.plot(x[peak_indices], dist[peak_indices], "x")
+		ax.hlines(widths[1], widths[2]*slope+x[0], widths[3]*slope+x[0], color="C2")
 		plt.show()
 
 	return fwhm
