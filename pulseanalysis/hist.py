@@ -151,6 +151,55 @@ def getFWHM(data, drawPlot=False, peaks=e_peaks):
 
 	return fwhm
 
+def getFWHM_separatePeaks(data, npeaks=None, drawPlot=False):
+	# find minimums
+	x = np.linspace(np.amin(data), np.amax(data), 1000)
+	kernel = stats.gaussian_kde(data)
+	dist = kernel(x)
+	cutoff_indices, properties = find_peaks(-dist, prominence=0)
+
+	peak_indices, _ = find_peaks(dist)
+	npeaks_total = peak_indices.size
+	
+	# ensure npeaks is valid
+	if npeaks is None:
+		npeaks = npeaks_total
+	elif not isinstance(npeaks, int):
+		raise ValueError("Number of peaks must be an integer value.")
+	elif not npeaks > 0:
+		raise ValueError("Number of peaks  must be greater than 0.")
+	elif (npeaks > npeaks_total):
+		print("Can only find {0} peaks in the data. Assuming {0} peaks instead of {1}.".format(npeaks_total, npeaks))
+		npeaks = npeaks_total
+
+	# get most prominent minimums
+	k = npeaks-1
+	prominences = properties["prominences"]
+	idx = np.argpartition(prominences, k)
+	cutoff_indices_filtered = cutoff_indices[idx[-k:]]
+	
+	# points at which we will split the data	
+	cutoffs = x[cutoff_indices_filtered]
+	cutoffs = np.append(cutoffs, [np.amin(data)-1, np.amax(data)+1])	
+	cutoffs = np.sort(cutoffs)
+
+	# split the data into peaks
+	data_split = []
+	fwhm = np.zeros(cutoffs.size-1)
+	for i in range(cutoffs.size - 1):
+		data_split.append(data[(data>cutoffs[i]) & (data<=cutoffs[i+1])])
+		fwhm[i] = getFWHM(data_split[i], drawPlot)
+
+	return fwhm
+	
+	#if drawPlot:
+	#	fig = plt.figure()
+	#	ax = fig.add_subplot(111)
+	#	ax.hist(data, bins='auto', density=True)
+	#	ax.plot(x, dist)
+	#	ax.plot(x[cutoff_indices_filtered], dist[cutoff_indices_filtered], "x")
+	#	plt.show()
+
 def compareDist(data1, data2, nbin=300, drawPlot='True'):
 	fwhm1 = getFWHM(data1)
 	fwhm2 = getFWHM(data2)	
