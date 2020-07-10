@@ -57,7 +57,7 @@ def distToEV(values, peaks=e_peaks, drawPlot=False):
 
 	return energies
 
-def testBW(data, drawPlot=True):
+def testBW(data, desc=""):
 	
 	scale = 1
 
@@ -99,7 +99,12 @@ def testBW(data, drawPlot=True):
 	ax.plot(x, dist5, label='Const .15', linestyle='dashed', linewidth=2)
 	ax.plot(x, dist6, label='Const .30', linestyle='dashed', linewidth=2)
 	ax.legend()
-	ax.set_title("BW Comparison")
+	
+	title = "BW Comparison"
+	if not desc == "":
+		title = title + ": " + desc
+	
+	ax.set_title(title)
 	
 	plt.show()
 	
