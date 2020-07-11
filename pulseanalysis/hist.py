@@ -109,7 +109,7 @@ def testBW(data, desc=""):
 	
 	plt.show()
 	
-def getFWHM(data, samples=1000, drawPlot=False):
+def getFWHM(data, bw=None, samples=1000, desc="", xlabel="", drawPlot=False):
 	'''
 	Takes in distribution data, number of samples used to resolve the fit, and
 	drawPlot. Outputs array containing fwhm for each peak and the kde distribution
@@ -119,6 +119,12 @@ def getFWHM(data, samples=1000, drawPlot=False):
 	# find peaks in data
 	x = np.linspace(np.amin(data), np.amax(data), samples)
 	kernel = stats.gaussian_kde(data)
+
+	if bw is not None:
+		kernel.set_bandwidth(bw_method=bw)
+
+	bw = kernel.factor
+
 	dist = kernel(x)
 	peak_indices, properties = find_peaks(dist, prominence=0, height=0)
 	npeaks = peak_indices.size	
@@ -147,14 +153,19 @@ def getFWHM(data, samples=1000, drawPlot=False):
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 		ax.hist(data, bins='auto', density=True)
-		ax.plot(x, dist)
+		ax.plot(x, dist, label="BW: {:.4f}".format(bw))
 		ax.plot(x[peak_indices], dist[peak_indices], "x")
 		ax.hlines(widths[1], widths[2]*slope+x[0], widths[3]*slope+x[0], color="C2")
+		title = "KDE"
+		if not desc == "":
+			title = title + ": " + desc
+		if not xlabel == "":
+			ax.set_xlabel(xlabel)
 		plt.show()
 
 	return fwhm, dist
 
-def getFWHM_separatePeaks(data, npeaks=None, samples=1000, drawPlot=True):
+def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc="", xlabel="",  drawPlot=True):
 	
 	# find minimums
 	x = np.linspace(np.amin(data), np.amax(data), samples)
@@ -175,6 +186,15 @@ def getFWHM_separatePeaks(data, npeaks=None, samples=1000, drawPlot=True):
 	elif (npeaks > npeaks_total):
 		print("Can only find {0} peaks in the data. Assuming {0} peaks instead of {1}.".format(npeaks_total, npeaks))
 		npeaks = npeaks_total
+
+	if bw_list is not None:
+		if not (len(bw_list) == npeaks):
+			raise ValueError("Bandwidth list must match number of peaks.")
+
+	else:
+		bw_list = []
+		for i in range(npeaks):
+			bw_list.append(None)
 
 	# get npeaks greatest peak heights
 	peak_heights = peak_properties["peak_heights"]
@@ -201,7 +221,7 @@ def getFWHM_separatePeaks(data, npeaks=None, samples=1000, drawPlot=True):
 
 	for i in range(cutoffs.size - 1):
 		data_split.append(data[(data>cutoffs[i]) & (data<=cutoffs[i+1])])
-		fwhm, dist = getFWHM(data_split[i], samples, drawPlot=False)
+		fwhm, dist = getFWHM(data_split[i], bw=bw_list[i], samples=samples, drawPlot=False)
 		fwhm_list.append(fwhm)
 		dist_list.append(dist)
 
@@ -209,9 +229,24 @@ def getFWHM_separatePeaks(data, npeaks=None, samples=1000, drawPlot=True):
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 		ax.hist(data, bins='auto', density=True)
-		for sdata, dist, height in zip(data_split, dist_list, rel_peak_heights):
+		for i, (sdata, dist, height) in enumerate(zip(data_split, dist_list, rel_peak_heights)):
 			x = np.linspace(np.amin(sdata), np.amax(sdata), samples)
-			ax.plot(x, dist*height)
+			if bw_list[i] is None:
+				bw_str = "Default"
+			else:
+				bw_str = str(bw_list[i])
+			ax.plot(x, dist*height, label="BW: " + bw_str)
+			
+			if not xlabel=="":
+				ax.set_xlabel(xlabel)
+			
+			title = "Split KDE"
+			if not desc=="":
+				title = title + ": " + desc
+			
+			ax.set_title(title)
+
+			ax.legend(loc='upper right')
 		plt.show()
 
 	return np.array(fwhm_list)
