@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
+import scipy.optimize as optimize
 
 import pulseanalysis.hist as hist
 import pulseanalysis.data as mkid
@@ -75,6 +76,47 @@ def project2DScatter(points=None, direction=[8,5], drawPlot=False):
 
 	return proj
 
+def getEntropy(degree, *params):
+
+	points, guess, bins = params
+
+	theta = np.radians(degree[0])
+	c, s = np.cos(theta), np.sin(theta)
+	R = np.array(((c, s), (-s, c)))
+
+	direction = R @ guess
+
+	data = project2DScatter(points, direction=direction)	
+
+	hist = np.histogram(data, bins=bins, density=True)[0]
+	ent = -(hist*np.ma.log(hist)).sum()
+
+	return ent
+
+def optimizeEntropy(points, direction_g=[8,5], d_range=30, interval=1):
+	
+	unit_direction_g = direction_g/np.linalg.norm(direction_g)
+
+	params = (points, unit_direction_g, 100)
+	
+	values = slice(-d_range, d_range, interval)
+	
+	opt = optimize.brute(getEntropy, (values,), params)
+	
+	theta = np.radians(opt[0])
+	c, s = np.cos(theta), np.sin(theta)
+	R = np.array(((c, s), (-s, c)))
+
+	direction = R @ unit_direction_g
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.scatter(points[:,0], points[:,1], marker="x")
+	ax.plot([0, 3*direction[0]], [0, 3*direction[1]], color='orange')
+	plt.show()
+
+	return direction
+
 def getPCAEnergies():
 	traces = mkid.loadTraces()
 	points = generate2DScatter(traces)
@@ -82,6 +124,22 @@ def getPCAEnergies():
 	energies = hist.distToEV(values)
 
 	return energies
+
+def optimizePCAResolution():
+	print("Extracting traces from file...")
+	traces = mkid.loadTraces()
+	print("Getting PCA decomposition...")
+	points = generate2DScatter(traces)
+	print("Getting optimized direction...")
+	direction = optimizeEntropy(points)
+	print("Reducing data to 1D...")
+	data = project2DScatter(points, direction=direction)
+	print("Converting data to energy scale...")
+	energies = hist.distToEV(data)
+	print("Computing resolutions...")
+	fwhm_list, _ = hist.getFWHM(energies, desc="PCA Data", xlabel="Energy [eV]", drawPlot=True)
+	
+	return fwhm_list
 
 #fig1 = plt.figure()
 #ax1 = fig1.add_subplot(121)
