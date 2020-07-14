@@ -299,7 +299,7 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 				bw_str = "Default"
 			else:
 				bw_str = str(bw_list[i])
-			ax.plot(x, dist*height, label="BW: " + bw_str)
+			ax.plot(x, dist*height, label="BW: " + bw_str + " FWHM: " + str(round(fwhm_list[i].item(),2)))
 			
 			if not xlabel=="":
 				ax.set_xlabel(xlabel)
