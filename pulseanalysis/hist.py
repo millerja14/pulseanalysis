@@ -165,13 +165,27 @@ def getFWHM(data, npeaks=None, bw=None, samples=1000, desc="", xlabel="", drawPl
 
 	dist = kernel(x)
 	peak_indices, properties = find_peaks(dist, prominence=0, height=0)
-	npeaks = peak_indices.size	
 	
-	#TODO: Set npeaks using npeaks input parameter
-
+	if npeaks is None:
+		npeaks = peak_indices.size
+	elif not isinstance(npeaks, int):
+		raise ValueError("Number of peaks must be an integer value.")
+	elif not npeaks > 0:
+		raise ValueError("Number of peaks must be greater than 0.")
+	elif (npeaks > peak_indices.size):
+		print("Can only find {0} peaks in the data, Assuming {0} peaks instead of {1}.".format(peak_indices.size, npeaks))
+		npeaks = peak_indices.size	
+	
 	# calculate half-max height as percentage relative to prominence for each peak
 	prominences = properties["prominences"]
 	heights = properties["peak_heights"]
+
+	# select proper number of largest peaks
+	idx = np.argsort(heights)[-npeaks:]
+	peak_indices = np.sort(np.take(peak_indices, idx))
+	prominences = np.take(prominences, idx)
+	heights = np.take(heights, idx)
+
 	halfmax_adj = 1-(((0.5*heights)-(heights-prominences))/prominences)
 
 	# conversion from samples to eV
@@ -271,7 +285,7 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 
 	for i in range(cutoffs.size - 1):
 		data_split.append(data[(data>cutoffs[i]) & (data<=cutoffs[i+1])])
-		fwhm, dist = getFWHM(data_split[i], bw=bw_list[i], samples=samples, drawPlot=False)
+		fwhm, dist = getFWHM(data_split[i], npeaks=1, bw=bw_list[i], samples=samples, drawPlot=True)
 		fwhm_list.append(fwhm)
 		dist_list.append(dist)
 
