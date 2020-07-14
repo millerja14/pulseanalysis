@@ -28,6 +28,9 @@ def benchmarkEnergies(traces=None):
 
 	return distToEV(values)
 
+def resolveDoublePeak(data, peak1=5888, peak2=5899, height1=1, height2=2):
+	return False
+
 def distToEV(values, peaks=e_peaks, drawPlot=False):
 	value_space  = np.linspace(np.amin(values), np.amax(values), 1000)
 	kernel = stats.gaussian_kde(values)
@@ -109,7 +112,7 @@ def testBW(data, desc=""):
 	
 	plt.show()
 	
-def getFWHM(data, bw=None, samples=1000, desc="", xlabel="", drawPlot=False):
+def getFWHM(data, npeaks=None, bw=None, samples=1000, desc="", xlabel="", drawPlot=False):
 	'''
 	Takes in distribution data, number of samples used to resolve the fit, and
 	drawPlot. Outputs array containing fwhm for each peak and the kde distribution
@@ -128,7 +131,8 @@ def getFWHM(data, bw=None, samples=1000, desc="", xlabel="", drawPlot=False):
 	dist = kernel(x)
 	peak_indices, properties = find_peaks(dist, prominence=0, height=0)
 	npeaks = peak_indices.size	
-
+	
+	#TODO: Set npeaks using npeaks input parameter
 
 	# calculate half-max height as percentage relative to prominence for each peak
 	prominences = properties["prominences"]
