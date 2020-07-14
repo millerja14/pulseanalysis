@@ -169,13 +169,32 @@ def getFWHM(data, npeaks=None, bw=None, samples=1000, desc="", xlabel="", drawPl
 
 	return fwhm, dist
 
-def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc="", xlabel="",  drawPlot=True):
-	
-	# find minimums
+def getCutoffs(data, npeaks, samples=1000):
+
+	# find minima
 	x = np.linspace(np.amin(data), np.amax(data), samples)
 	kernel = stats.gaussian_kde(data)
 	dist = kernel(x)
 	cutoff_indices, cutoff_properties = find_peaks(-dist, prominence=0)
+	
+	# get most prominent minima
+	k = npeaks-1
+	cutoff_prominences = cutoff_properties["prominences"]
+	idx = np.argsort(cutoff_prominences)[-k:]
+	cutoff_indices_filtered = np.sort(np.take(cutoff_indices, idx))
+
+	# points at which we will split the data
+	cutoffs = x[cutoff_indices_filtered]
+	cutoffs = np.append(cutoffs, [np.amin(data)-1, np.amax(data)+1])
+	cutoffs = np.sort(cutoffs)
+	
+	return cutoffs
+	
+def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc="", xlabel="",  drawPlot=True):
+	
+	x = np.linspace(np.amin(data), np.amax(data), samples)
+	kernel = stats.gaussian_kde(data)
+	dist = kernel(x)
 
 	peak_indices, peak_properties = find_peaks(dist, height=0)
 	npeaks_total = peak_indices.size
@@ -208,15 +227,7 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 	rel_peak_heights = peak_heights_filtered/np.sum(peak_heights_filtered)	
 
 	# get most prominent minimums
-	k = npeaks-1
-	cutoff_prominences = cutoff_properties["prominences"]
-	idx = np.argsort(cutoff_prominences)[-k:]
-	cutoff_indices_filtered = np.sort(np.take(cutoff_indices, idx))
-	
-	# points at which we will split the data	
-	cutoffs = x[cutoff_indices_filtered]
-	cutoffs = np.append(cutoffs, [np.amin(data)-1, np.amax(data)+1])	
-	cutoffs = np.sort(cutoffs)
+	cutoffs = getCutoffs(data, npeaks, samples)	
 
 	# split the data into peaks
 	data_split = []
