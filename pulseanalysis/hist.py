@@ -28,7 +28,24 @@ def benchmarkEnergies(traces=None):
 
 	return distToEV(values)
 
-def resolveDoublePeak(data, peak1=5888, peak2=5899, height1=1, height2=2):
+def getDoublePeak_fe55(data, drawPlot=False):
+	cutoff = getCutoffs(data, 2)
+	print(cutoff)
+
+	doublepeak = data[data<cutoff]
+
+	if drawPlot:
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.hist(doublepeak, bins='auto')
+		ax.set_xlabel("Energy [eV]")
+		ax.set_ylabel("Counts")
+		ax.set_title("Fe55 5.9 keV Double Peak")
+		plt.show()
+	
+	return doublepeak
+
+def resolveDoublePeak(doublepeak, peak1=5888, peak2=5899, height1=1, height2=2):
 	return False
 
 def distToEV(values, peaks=e_peaks, drawPlot=False):
@@ -185,7 +202,6 @@ def getCutoffs(data, npeaks, samples=1000):
 
 	# points at which we will split the data
 	cutoffs = x[cutoff_indices_filtered]
-	cutoffs = np.append(cutoffs, [np.amin(data)-1, np.amax(data)+1])
 	cutoffs = np.sort(cutoffs)
 	
 	return cutoffs
@@ -228,7 +244,8 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 
 	# get most prominent minimums
 	cutoffs = getCutoffs(data, npeaks, samples)	
-
+	cutoffs = np.append(cutoffs, [np.amin(data)-1, np.amax(data)+1])
+	cutoffs = np.sort(cutoffs)
 	# split the data into peaks
 	data_split = []
 	fwhm_list = []
