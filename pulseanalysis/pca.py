@@ -125,11 +125,22 @@ def getPCAEnergies():
 
 	return energies
 
-def optimizePCAResolution():
-	print("Extracting traces from file...")
-	traces = mkid.loadTraces()
-	print("Getting PCA decomposition...")
-	points = generate2DScatter(traces)
+def optimizePCAResolution(points=None, npeaks=None, bw_list=None):
+	
+	if points is None:	
+		print("No points given")
+		print("Extracting traces from file...")
+		traces = mkid.loadTraces()
+		print("Getting PCA decomposition...")
+		points = generate2DScatter(traces)
+
+	if (bw_list is not None) and (npeaks is not None):
+		if not (len(bw_list) == npeaks):
+			raise ValueError("Bandwidth list must match number of peaks.")	
+		
+	if (npeaks is None) and (bw_list is not None):
+		npeaks = len(bw_list)	
+
 	print("Getting optimized direction...")
 	direction = optimizeEntropy(points)
 	print("Reducing data to 1D...")
@@ -137,7 +148,7 @@ def optimizePCAResolution():
 	print("Converting data to energy scale...")
 	energies = hist.distToEV(data)
 	print("Computing resolutions...")
-	fwhm_list, _ = hist.getFWHM(energies, desc="PCA Data", xlabel="Energy [eV]", drawPlot=True)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Data", xlabel="Energy [eV]", drawPlot=True)
 	
 	return fwhm_list
 
