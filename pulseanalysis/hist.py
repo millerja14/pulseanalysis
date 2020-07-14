@@ -45,7 +45,25 @@ def getDoublePeak_fe55(data, drawPlot=False):
 	
 	return doublepeak
 
-def resolveDoublePeak(doublepeak, peak1=5888, peak2=5899, height1=1, height2=2):
+
+def resolveDoublePeak(data=None, peak1=5888, peak2=5899, A=0.5, B=0.5, bw=None, samples=1000):
+	
+	if data is None:
+		data = getDoublePeak_fe55(benchmarkEnergies())
+
+	x = np.linspace(np.amin(data), np.amax(data), samples)
+	_, gx = getFWHM(data, bw=bw, samples=samples)
+	
+	if True:
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.hist(data, bins='auto', density=True)
+		ax.plot(x, gx)
+		plt.show()
+
+	## STUB
+	raise NotImplementedError
+
 	return False
 
 def distToEV(values, peaks=e_peaks, drawPlot=False):
