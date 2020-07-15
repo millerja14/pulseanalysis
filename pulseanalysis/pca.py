@@ -93,7 +93,7 @@ def getEntropy(degree, *params):
 
 	return ent
 
-def optimizeEntropy(points, direction_g=[8,5], d_range=30, interval=1):
+def optimizeEntropy(points, direction_g=[8,5], d_range=90, interval=1):
 	
 	unit_direction_g = direction_g/np.linalg.norm(direction_g)
 
@@ -112,7 +112,9 @@ def optimizeEntropy(points, direction_g=[8,5], d_range=30, interval=1):
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
 	ax.scatter(points[:,0], points[:,1], marker="x")
-	ax.plot([0, 3*direction[0]], [0, 3*direction[1]], color='orange')
+	ax.plot([0, 3*direction[0]], [0, 3*direction[1]], color='green', label='Optimized')
+	ax.plot([0, 3*unit_direction_g[0]], [0, 3*unit_direction_g[1]], color='orange', label='By Eye')
+	ax.legend(loc='upper right')
 	plt.show()
 
 	return direction
@@ -148,7 +150,7 @@ def optimizePCAResolution(points=None, npeaks=None, bw_list=None):
 	print("Converting data to energy scale...")
 	energies = hist.distToEV(data)
 	print("Computing resolutions...")
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Data", xlabel="Energy [eV]", drawPlot=True)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Optimized Projection", xlabel="Energy [eV]", drawPlot=True)
 	
 	return fwhm_list
 
