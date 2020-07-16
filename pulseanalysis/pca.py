@@ -4,6 +4,7 @@ import matplotlib
 matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import scipy.optimize as optimize
+import scipy.spatial.transform as transform
 
 import pulseanalysis.hist as hist
 import pulseanalysis.data as mkid
@@ -123,6 +124,26 @@ def project2DScatter(points=None, direction=[8,5], drawPlot=False):
 
 	return proj
 
+def project3DScatter(points=None, direction=[8,5,0], drawPlot=False):
+	if not isinstance(points, (list, np.ndarray)):
+		print("project3DScatter(): No points given, getting default points...")
+		points = generate2DScatter()
+
+	sym = np.array(direction)
+	unit_sym = sym/np.linalg.norm(sym)
+	proj = points @ unit_sym
+
+	if drawPlot:
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.hist(proj, bins='auto')
+
+		ax.set_title("3D PCA projected on to <{0:.2f},{1:.2f}, {3:.2f}>".format(*direction))
+
+		plt.show()
+
+	return proj
+
 def getEntropy(degree, *params):
 
 	points, guess, bins = params
@@ -139,6 +160,27 @@ def getEntropy(degree, *params):
 	ent = -(hist*np.ma.log(hist)).sum()
 
 	return ent
+
+def getEntropy3D(degree, *params):
+	points, guess, bins = params
+
+	unit_guess = guess / np.linalg.norm(guess)
+
+	theta = np.radians(degree[0])
+	
+	perp_guess = np.array([unit_guess[1], -unit_guess[0], 0])
+
+	R = transform.Rotation.from_rotvec(theta * perp_guess).as_matrix()
+	
+	direction = R @ unit_guess
+
+	data = project3DScatter(points, direction=direction)
+
+	hist = np.histogram(data, bins=bins, density=True)[0]
+	ent = -(hist*np.ma.log(hist)).sum()
+
+	return ent
+	
 
 def optimizeEntropy(points, direction_g=[8,5], d_range=90, interval=1):
 	
@@ -165,6 +207,31 @@ def optimizeEntropy(points, direction_g=[8,5], d_range=90, interval=1):
 	plt.show()
 
 	return direction
+
+def optimizeEntropy3D(points, direction_g=[8,5,0], d_range=90, interval=1):
+	unit_direction_g = direction_g/np.linalg.norm(direction_g)
+
+	params = (points, unit_direction_g, 100)
+
+	values = slice(-d_range, d_range, interval)
+
+	opt = optimize.brute(getEntropy3D, (values,), params)
+
+	perp_guess = np.array([unit_direction_g[1], -unit_direction_g[0], 0])
+	R = transform.Rotation.from_rotvec(np.radians(opt[0]) * perp_guess).as_matrix()	
+
+	direction = R @ unit_direction_g
+
+	fig = plt.figure()
+	ax = plt.axes(projection='3d')
+	ax.scatter(points[:,0], points[:,1], points[:,2], marker="x")
+	ax.plot([0, 3*direction[0]], [0, 3*direction[1]], [0, 3*direction[2]], color='green', label='Optimized')
+	ax.plot([0, 3*unit_direction_g[0]], [0, 3*unit_direction_g[1]], [0, 3*unit_direction_g[2]], color='orange', label='By Eye')
+	ax.legend(loc='upper right')
+	plt.show()
+
+	return direction
+
 
 def getPCAEnergies():
 	traces = mkid.loadTraces()
@@ -200,6 +267,33 @@ def optimizePCAResolution(points=None, npeaks=None, bw_list=None):
 	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Optimized Projection", xlabel="Energy [eV]", drawPlot=True)
 	
 	return fwhm_list
+
+def optimizePCAResolution3D(points=None, npeaks=None, bw_list=None):
+	if points is None:
+		print("No points given")
+		print("Extracting traces from file...")
+		traces = mkid.loadTraces()
+		print("Getting PCA decomposition...")
+		points = generate3DScatter(traces)
+
+	if (bw_list is not None) and (npeaks is not None):
+		if not (len(bw_list) == npeaks):
+			raise ValueError("Bandwidth list must match number of peaks.")
+
+	if (npeaks is None) and (bw_list is not None):
+		npeaks = len(bw_list)
+
+	print("Getting optimized direction...")
+	direction = optimizeEntropy3D(points)
+	print("Reducing data to 1D...")
+	data = project3DScatter(points, direction=direction)
+	print("Converting data to energy scale...")
+	energies = hist.distToEV(data)
+	print("Computing resolutions...")
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Optimized Projection", xlabel="Energy [eV]", drawPlot=True)
+
+	return fwhm_list
+
 
 #fig1 = plt.figure()
 #ax1 = fig1.add_subplot(121)
