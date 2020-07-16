@@ -237,6 +237,78 @@ def optimizeEntropy3D(points, direction_g=[8,5,0], d_range=90, interval=1):
 	return direction
 
 
+def rotate3D(degree, ortho1, direction):
+	unit_direction  = direction/np.linalg.norm(direction)
+	ortho1 = ortho1/np.linalg.norm(ortho1)	
+
+	theta = np.radians(degree)
+
+	R1 = transform.Rotation.from_rotvec(theta[0] * ortho1).as_matrix()
+
+	direction_r1 = R1 @ direction
+	unit_direction_r1 = direction_r1/np.linalg.norm(direction_r1)
+
+	y = np.cross(unit_direction_r1, ortho1)
+	ortho2 = y/np.linalg.norm(y)
+
+	R2 = transform.Rotation.from_rotvec(theta[1] * ortho2).as_matrix()
+
+	direction_r2 = R2 @ direction_r1
+
+	return direction_r2
+
+def getEntropy3D_1step(degree, *params):
+	points, ortho1, unit_direction_g, bins = params
+
+	unit_direction = rotate3D(degree, ortho1, unit_direction_g)
+	unit_direction = unit_direction/np.linalg.norm(unit_direction)
+
+	data = project3DScatter(points, direction=unit_direction)
+
+	hist = np.histogram(data, bins=bins, density=True)[0]
+	ent = -(hist*np.ma.log(hist)).sum()
+
+	return ent
+	
+
+def optimizeEntropy3D_1step(points, direction_g=[8,5,0], d_range=90, interval=1):
+	
+	direction_g = np.array(direction_g)
+
+	checked_points = np.array([])
+
+	unit_direction_g = direction_g/np.linalg.norm(direction_g)
+	
+	x = np.random.randn(3)
+	x = x - x.dot(unit_direction_g) * unit_direction_g
+
+	ortho1 = x/np.linalg.norm(x)
+
+	params = (points, ortho1, unit_direction_g, 100)
+
+	values = slice(-d_range, d_range, interval)
+
+	opt = optimize.brute(getEntropy3D_1step, (values, values), params)
+
+	direction = rotate3D(opt, ortho1, direction_g)
+	unit_direction = direction/np.linalg.norm(direction)
+
+	fig = plt.figure()
+	ax = plt.axes(projection='3d')
+	ax.scatter(*np.rollaxis(points, 1), marker='x')
+	
+	guess_points = np.array([[0,0,0], 3*direction_g]).T
+	opt_points = np.array([[0,0,0], 3*direction]).T
+
+	ax.plot(*opt_points, color='green', label='Optimized')
+	ax.plot(*guess_points, color='orange', label='Guess')
+
+	ax.legend(loc='upper right')
+
+	plt.show()
+
+	return unit_direction
+
 def getPCAEnergies():
 	traces = mkid.loadTraces()
 	points = generate2DScatter(traces)
@@ -288,7 +360,7 @@ def optimizePCAResolution3D(points=None, npeaks=None, bw_list=None):
 		npeaks = len(bw_list)
 
 	print("Getting optimized direction...")
-	direction = optimizeEntropy3D(points)
+	direction = optimizeEntropy3D_1step(points)
 	print("Reducing data to 1D...")
 	data = project3DScatter(points, direction=direction)
 	print("Converting data to energy scale...")
