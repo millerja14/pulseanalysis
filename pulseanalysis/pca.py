@@ -209,24 +209,28 @@ def optimizeEntropy(points, direction_g=[8,5], d_range=90, interval=1):
 	return direction
 
 def optimizeEntropy3D(points, direction_g=[8,5,0], d_range=90, interval=1):
-	unit_direction_g = direction_g/np.linalg.norm(direction_g)
 
-	params = (points, unit_direction_g, 100)
+	# get the optimal direction in first 2 PC dimensions
+	unit_direction_2d = np.append(optimizeEntropy(points[:,:2], direction_g=direction_g[:2]), 0)
+	print("unit_direction_2d: ", unit_direction_2d)
+	print("norm: ", np.linalg.norm(unit_direction_2d))
+
+	params = (points, unit_direction_2d, 100)
 
 	values = slice(-d_range, d_range, interval)
 
 	opt = optimize.brute(getEntropy3D, (values,), params)
 
-	perp_guess = np.array([unit_direction_g[1], -unit_direction_g[0], 0])
+	perp_guess = np.array([unit_direction_2d[1], -unit_direction_2d[0], 0])
 	R = transform.Rotation.from_rotvec(np.radians(opt[0]) * perp_guess).as_matrix()	
 
-	direction = R @ unit_direction_g
+	direction = R @ unit_direction_2d
 
 	fig = plt.figure()
 	ax = plt.axes(projection='3d')
 	ax.scatter(points[:,0], points[:,1], points[:,2], marker="x")
 	ax.plot([0, 3*direction[0]], [0, 3*direction[1]], [0, 3*direction[2]], color='green', label='Optimized')
-	ax.plot([0, 3*unit_direction_g[0]], [0, 3*unit_direction_g[1]], [0, 3*unit_direction_g[2]], color='orange', label='By Eye')
+	ax.plot([0, 3*unit_direction_2d[0]], [0, 3*unit_direction_2d[1]], [0, 3*unit_direction_2d[2]], color='orange', label='By Eye')
 	ax.legend(loc='upper right')
 	plt.show()
 
