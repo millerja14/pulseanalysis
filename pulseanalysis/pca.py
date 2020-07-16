@@ -275,8 +275,6 @@ def optimizeEntropy3D_1step(points, direction_g=[8,5,0], d_range=90, interval=1)
 	
 	direction_g = np.array(direction_g)
 
-	checked_points = np.array([])
-
 	unit_direction_g = direction_g/np.linalg.norm(direction_g)
 	
 	x = np.random.randn(3)
