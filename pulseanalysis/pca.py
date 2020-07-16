@@ -242,16 +242,16 @@ def rotate3D(degree, ortho1, direction):
 	ortho1 = ortho1/np.linalg.norm(ortho1)	
 
 	theta = np.radians(degree)
+	
+	azim = theta[0]
+	polar = theta[1]
 
 	R1 = transform.Rotation.from_rotvec(theta[0] * ortho1).as_matrix()
 
 	direction_r1 = R1 @ direction
 	unit_direction_r1 = direction_r1/np.linalg.norm(direction_r1)
 
-	y = np.cross(unit_direction_r1, ortho1)
-	ortho2 = y/np.linalg.norm(y)
-
-	R2 = transform.Rotation.from_rotvec(theta[1] * ortho2).as_matrix()
+	R2 = transform.Rotation.from_rotvec(theta[1] * unit_direction).as_matrix()
 
 	direction_r2 = R2 @ direction_r1
 
@@ -284,9 +284,10 @@ def optimizeEntropy3D_1step(points, direction_g=[8,5,0], d_range=90, interval=1)
 
 	params = (points, ortho1, unit_direction_g, 100)
 
-	values = slice(-d_range, d_range, interval)
-
-	opt = optimize.brute(getEntropy3D_1step, (values, values), params)
+	azim = slice(-d_range, d_range, interval)
+	polar = slice(0, 360, 1)
+	
+	opt = optimize.brute(getEntropy3D_1step, (azim, polar), params)
 
 	direction = rotate3D(opt, ortho1, direction_g)
 	unit_direction = direction/np.linalg.norm(direction)
@@ -295,8 +296,8 @@ def optimizeEntropy3D_1step(points, direction_g=[8,5,0], d_range=90, interval=1)
 	ax = plt.axes(projection='3d')
 	ax.scatter(*np.rollaxis(points, 1), marker='x')
 	
-	guess_points = np.array([[0,0,0], 3*direction_g]).T
-	opt_points = np.array([[0,0,0], 3*direction]).T
+	guess_points = np.array([[0,0,0], 3*unit_direction_g]).T
+	opt_points = np.array([[0,0,0], 3*unit_direction]).T
 
 	ax.plot(*opt_points, color='green', label='Optimized')
 	ax.plot(*guess_points, color='orange', label='Guess')
@@ -338,7 +339,7 @@ def optimizePCAResolution(points=None, npeaks=None, bw_list=None):
 	print("Converting data to energy scale...")
 	energies = hist.distToEV(data)
 	print("Computing resolutions...")
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Optimized Projection", xlabel="Energy [eV]", drawPlot=True)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Optimized Projection 2D", xlabel="Energy [eV]", drawPlot=True)
 	
 	return fwhm_list
 
@@ -364,7 +365,7 @@ def optimizePCAResolution3D(points=None, npeaks=None, bw_list=None):
 	print("Converting data to energy scale...")
 	energies = hist.distToEV(data)
 	print("Computing resolutions...")
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Optimized Projection", xlabel="Energy [eV]", drawPlot=True)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Optimized Projection 3D", xlabel="Energy [eV]", drawPlot=True)
 
 	return fwhm_list
 
