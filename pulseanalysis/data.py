@@ -15,6 +15,11 @@ def loadTraces(dir=directory):
 	
 	loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
 	traces = loop.pulses[0].p_trace
+	
+	# FOR SPECIFIC DATA SET
+	# REMOVE OUTLIERS
+	outliers = [3810]
+	traces = np.delete(traces, outliers, axis=0)	
 
 	return traces
 
