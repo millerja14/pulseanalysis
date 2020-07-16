@@ -49,6 +49,53 @@ def generate2DScatter(traces=None, drawPlot=False):
 
 	return points
 
+def generate3DScatter(traces=None, drawPlot=True):
+	if not isinstance(traces, (np.ndarray)):
+		print("generate3DScatter(): No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+
+	nPoints = traces.shape[0]
+	traceAvg = np.mean(traces, axis=0)
+
+	B = traces - np.tile(traceAvg, (nPoints,1))
+
+	U, S, VT = np.linalg.svd(B/np.sqrt(nPoints), full_matrices=0)
+
+	points = np.zeros(shape=(nPoints, 3))
+
+	for j in range(B.shape[0]):
+		x = VT[0,:] @ B[j,:].T
+		y = VT[1,:] @ B[j,:].T
+		z = VT[2,:] @ B[j,:].T
+		points[j,:] = [x,y,z]
+
+	if False:
+		ex_trace = traces[np.argmin(points[:,2])]
+	
+		fig = plt.figure()
+		ax1 = fig.add_subplot(121)
+		ax1.plot(ex_trace)
+		ax1.set_title("Outlier")
+		ax2 = fig.add_subplot(122)
+		ax2.plot(traces[0])
+		ax2.set_title("Standard")
+		plt.show()
+
+	if drawPlot:
+		fig = plt.figure()
+		ax = plt.axes(projection='3d')
+
+		ax.scatter(points[:,0], points[:,1], points[:,2], marker='x', color='b')
+
+		ax.set_title("PCA of Fe55 Data")
+		ax.set_xlabel("PC1")
+		ax.set_ylabel("PC2")
+		ax.set_zlabel("PC3")
+
+		plt.show()
+
+	return points
+
 def project2DScatter(points=None, direction=[8,5], drawPlot=False):
 	
 	'''
