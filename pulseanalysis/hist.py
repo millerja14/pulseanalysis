@@ -299,18 +299,23 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 				bw_str = "Default"
 			else:
 				bw_str = str(bw_list[i])
-			ax.plot(x, dist*height, label="BW: " + bw_str + " FWHM: " + str(round(fwhm_list[i].item(),2)))
-			
+			#ax.plot(x, dist*height, label="BW: " + bw_str + " FWHM: " + str(round(fwhm_list[i].item(),2)))
+			ax.plot(x, dist*height, label="FWHM: " + str(round(fwhm_list[i].item(),2)) + " eV")
+			ax.set_ylabel("Frequencies")
 			if not xlabel=="":
 				ax.set_xlabel(xlabel)
-			
-			title = "Split KDE"
+
+			title = "Fe55 Energies"
 			if not desc=="":
 				title = title + ": " + desc
 			
 			ax.set_title(title)
 
+			ax.set_xlim(5500, 6800)		
+
 			ax.legend(loc='upper right')
+
+			
 		plt.show()
 
 	return np.array(fwhm_list)
