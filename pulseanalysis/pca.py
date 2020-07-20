@@ -1,13 +1,45 @@
 import mkidcalculator as mc
 import numpy as np
-import matplotlib
-matplotlib.use('tkagg')
+
+import matplotlib as mpl
+mpl.use('tkagg')
 import matplotlib.pyplot as plt
+mpl.rcParams['font.size'] = 22
+mpl.rcParams['lines.linewidth'] = 3.0
+mpl.rcParams['axes.labelpad'] = 6.0
+
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
 
 import pulseanalysis.hist as hist
 import pulseanalysis.data as mkid
+
+def principalVariances(traces=None):
+	if not isinstance(traces, np.ndarray):
+		print("No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+
+	nPoints = traces.shape[0]
+
+	traceAvg = np.mean(traces, axis=0)
+
+	B = traces - np.tile(traceAvg, (nPoints,1))
+
+	U, S, VT = np.linalg.svd(B, full_matrices=False)
+
+	varfrac = np.cumsum(S**2)/np.sum(S**2)
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+
+	ax.plot(varfrac, '-o', color='k')
+
+	ax.set_xlabel("PC Number")
+	ax.set_ylabel("Cumulative Proportion of Variance")
+
+	ax.set_title("Variance in Principal Components")
+
+	plt.show()
 
 def generate2DScatter(traces=None, drawPlot=False):
 	
@@ -70,18 +102,6 @@ def generate3DScatter(traces=None, drawPlot=True):
 		z = VT[2,:] @ B[j,:].T
 		points[j,:] = [x,y,z]
 
-	if False:
-		ex_trace = traces[np.argmin(points[:,2])]
-	
-		fig = plt.figure()
-		ax1 = fig.add_subplot(121)
-		ax1.plot(ex_trace)
-		ax1.set_title("Outlier")
-		ax2 = fig.add_subplot(122)
-		ax2.plot(traces[0])
-		ax2.set_title("Standard")
-		plt.show()
-
 	if drawPlot:
 		fig = plt.figure()
 		ax = plt.axes(projection='3d')
@@ -94,6 +114,31 @@ def generate3DScatter(traces=None, drawPlot=True):
 		ax.set_zlabel("PC3")
 
 		plt.show()
+
+	return points
+
+def generateScatter(dim, traces=None):
+	if not isinstance(traces, np.ndarray):
+		print("No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+
+	if not isinstance(dim, int):
+		raise ValueError("Dimension must be an integer.")
+
+	if not (dim > 0):
+		raise ValueError("Dimension must be greater than zero.")	
+
+	nPoints = traces.shape[0]
+	traceAvg = np.mean(traces, axis=0)
+
+	B = traces - np.tile(traceAvg, (nPoints, 1))
+
+	U, S, VT = np.linalg.svd(B/np.sqrt(nPoints), full_matrices=0)
+	
+	points = np.zeros(shape=(nPoints, dim))
+
+	for j in range(B.shape[0]):
+		points[j,:] = VT[:dim,:] @ B[j,:].T
 
 	return points
 
@@ -144,7 +189,38 @@ def project3DScatter(points=None, direction=[8,5,0], drawPlot=False):
 
 	return proj
 
-def getEntropy(degree, *params):
+def projectScatter(direction, points=None, drawPlot=False):
+	if not isinstance(points, (list, np.ndarray)):
+		print("project3DScatter(): No points given, getting default points...")
+		points = generate2DScatter()
+
+	if not points.shape[1] == direction.size:
+		raise ValueError("Dimension of points and projection vector must match.")
+
+	dim = direction.size
+
+	sym = np.array(direction)
+	unit_sym = sym/np.linalg.norm(sym)
+	proj = points @ unit_sym
+
+	if drawPlot:
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.hist(proj, bins='auto')
+
+		ax.set_title(str(dim) + "D PCA projection")
+
+		plt.show()
+
+	return proj
+
+def entropyFromDist(data, bins):
+	hist = np.histogram(data, bins=bins, density=True)[0]
+	ent = -(hist*np.ma.log(hist)).sum()
+
+	return ent
+
+def getEntropy2D(degree, *params):
 
 	points, guess, bins = params
 
@@ -155,9 +231,7 @@ def getEntropy(degree, *params):
 	direction = R @ guess
 
 	data = project2DScatter(points, direction=direction)	
-
-	hist = np.histogram(data, bins=bins, density=True)[0]
-	ent = -(hist*np.ma.log(hist)).sum()
+	ent = entropyFromDist(data, bins)
 
 	return ent
 
@@ -175,14 +249,12 @@ def getEntropy3D(degree, *params):
 	direction = R @ unit_guess
 
 	data = project3DScatter(points, direction=direction)
-
-	hist = np.histogram(data, bins=bins, density=True)[0]
-	ent = -(hist*np.ma.log(hist)).sum()
+	ent = entropyFromDist(data, bins)
 
 	return ent
 	
 
-def optimizeEntropy(points, direction_g=[8,5], d_range=90, interval=1):
+def optimizeEntropy2D(points, direction_g=[8,5], d_range=90, interval=1):
 	
 	unit_direction_g = direction_g/np.linalg.norm(direction_g)
 
@@ -190,7 +262,7 @@ def optimizeEntropy(points, direction_g=[8,5], d_range=90, interval=1):
 	
 	values = slice(-d_range, d_range, interval)
 	
-	opt = optimize.brute(getEntropy, (values,), params)
+	opt = optimize.brute(getEntropy2D, (values,), params)
 	
 	theta = np.radians(opt[0])
 	c, s = np.cos(theta), np.sin(theta)
@@ -201,8 +273,11 @@ def optimizeEntropy(points, direction_g=[8,5], d_range=90, interval=1):
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
 	ax.scatter(points[:,0], points[:,1], marker="x")
-	ax.plot([0, 3*direction[0]], [0, 3*direction[1]], color='green', label='Optimized')
-	ax.plot([0, 3*unit_direction_g[0]], [0, 3*unit_direction_g[1]], color='orange', label='By Eye')
+	ax.set_xlabel("PC #1")
+	ax.set_ylabel("PC #2")
+	ax.plot([0, 3*direction[0]], [0, 3*direction[1]], color='green', label='Optimized Projection')
+	#ax.plot([0, 3*unit_direction_g[0]], [0, 3*unit_direction_g[1]], color='orange', label='By Eye')
+	ax.set_title("2D PCA Reduction")
 	ax.legend(loc='upper right')
 	plt.show()
 
@@ -211,7 +286,7 @@ def optimizeEntropy(points, direction_g=[8,5], d_range=90, interval=1):
 def optimizeEntropy3D(points, direction_g=[8,5,0], d_range=90, interval=1):
 
 	# get the optimal direction in first 2 PC dimensions
-	unit_direction_2d = np.append(optimizeEntropy(points[:,:2], direction_g=direction_g[:2]), 0)
+	unit_direction_2d = np.append(optimizeEntropy2D(points[:,:2], direction_g=direction_g[:2]), 0)
 	print("unit_direction_2d: ", unit_direction_2d)
 	print("norm: ", np.linalg.norm(unit_direction_2d))
 
@@ -229,8 +304,12 @@ def optimizeEntropy3D(points, direction_g=[8,5,0], d_range=90, interval=1):
 	fig = plt.figure()
 	ax = plt.axes(projection='3d')
 	ax.scatter(points[:,0], points[:,1], points[:,2], marker="x")
-	ax.plot([0, 3*direction[0]], [0, 3*direction[1]], [0, 3*direction[2]], color='green', label='Optimized')
+	ax.plot([0, 3*direction[0]], [0, 3*direction[1]], [0, 3*direction[2]], color='green', label='Optimized Direction')
 	ax.plot([0, 3*unit_direction_2d[0]], [0, 3*unit_direction_2d[1]], [0, 3*unit_direction_2d[2]], color='orange', label='By Eye')
+	ax.set_xlabel("PC #1")
+	ax.set_ylabel("PC #2")
+	ax.set_zlabel("PC #3")
+	ax.set_title("3D PCA Reduction")
 	ax.legend(loc='upper right')
 	plt.show()
 
@@ -299,8 +378,14 @@ def optimizeEntropy3D_1step(points, direction_g=[8,5,0], d_range=90, interval=1)
 	guess_points = np.array([[0,0,0], 3*unit_direction_g]).T
 	opt_points = np.array([[0,0,0], 3*unit_direction]).T
 
-	ax.plot(*opt_points, color='green', label='Optimized')
-	ax.plot(*guess_points, color='orange', label='Guess')
+	ax.plot(*opt_points, color='green', label='Optimized Direction')
+	#ax.plot(*guess_points, color='orange', label='Guess')
+
+	ax.set_xlabel("PC #1")
+	ax.set_ylabel("PC #2")
+	ax.set_zlabel("PC #3")
+	
+	ax.set_title("Fe55 3D PCA Reduction")
 
 	ax.legend(loc='upper right')
 
@@ -308,7 +393,7 @@ def optimizeEntropy3D_1step(points, direction_g=[8,5,0], d_range=90, interval=1)
 
 	return unit_direction
 
-def showSearchPoints(direction=[8,5,0]):
+def showSearchPoints3D(direction=[8,5,0]):
 	unit_direction = direction/np.linalg.norm(direction)
 
 	azim_n = 10
@@ -343,6 +428,43 @@ def showSearchPoints(direction=[8,5,0]):
 	
 	plt.show()
 
+def allVectsND(dim, norm, steps=10):
+	nvects = steps**(dim-1)
+	vlist = np.zeros(shape=(nvects, dim))
+	
+
+	if dim==1:
+		vlist[0] = norm
+	else:
+		group = steps**(dim-2)
+		
+		if (dim-1)==1:
+			start = 0
+		else:
+			start = norm/steps
+		for i, n in enumerate(np.linspace(start, norm, steps)):
+			vlist_short = allVectsND(dim-1, n, steps)
+			vlist[i*group:(i+1)*group, 1:] = vlist_short
+			vlist[i*group:(i+1)*group, 0] = np.sqrt(norm**2-n**2)
+	
+	return vlist
+
+def showAllVects3D(steps=10):
+	points = generate3DScatter()
+	
+	vects = allVectsND(3, 1, steps=steps)
+	opt = np.array(optimizeEntropy3D_1step(points))
+
+	fig = plt.figure()
+	ax = plt.axes(projection = '3d')
+	
+	direction_points = np.array([[0,0,0], opt]).T
+
+	ax.plot(*direction_points, color='green')
+	ax.scatter(*np.rollaxis(vects, 1), marker='x')
+
+	plt.show()
+
 def getPCAEnergies():
 	traces = mkid.loadTraces()
 	points = generate2DScatter(traces)
@@ -351,7 +473,7 @@ def getPCAEnergies():
 
 	return energies
 
-def optimizePCAResolution(points=None, npeaks=None, bw_list=None):
+def optimizePCAResolution2D(points=None, npeaks=None, bw_list=None):
 	
 	if points is None:	
 		print("No points given")
@@ -374,7 +496,7 @@ def optimizePCAResolution(points=None, npeaks=None, bw_list=None):
 	print("Converting data to energy scale...")
 	energies = hist.distToEV(data)
 	print("Computing resolutions...")
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Optimized Projection 2D", xlabel="Energy [eV]", drawPlot=True)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="2D PCA with Optimized Projection", xlabel="Energy [eV]", drawPlot=True)
 	
 	return fwhm_list
 
@@ -395,15 +517,54 @@ def optimizePCAResolution3D(points=None, npeaks=None, bw_list=None):
 
 	print("Getting optimized direction...")
 	direction = optimizeEntropy3D_1step(points)
+	
 	print("Reducing data to 1D...")
 	data = project3DScatter(points, direction=direction)
 	print("Converting data to energy scale...")
 	energies = hist.distToEV(data)
 	print("Computing resolutions...")
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="PCA Optimized Projection 3D", xlabel="Energy [eV]", drawPlot=True)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="3D PCA with Optimized Projection", xlabel="Energy [eV]", drawPlot=True)
 
 	return fwhm_list
 
+def optimizePCAResolution(dim=3, points=None, npeaks=None, bw_list=None):
+	if points is None:
+		print("No points given")
+		print("Extracting traces from file...")
+		traces = mkid.loadTraces()
+		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
+		points = generateScatter(dim, traces)
+
+	if (bw_list is not None) and (npeaks is not None):
+		if not (len(bw_list) == npeaks):
+			raise ValueError("Bandwidth list must match number of peaks.")
+
+	if (npeaks is None) and (bw_list is not None):
+		npeaks = len(bw_list)
+
+
+	print("Getting optimized direction...")
+	vects = allVectsND(dim, 1, steps=100)
+	
+	data = projectScatter(vects[0], points=points)
+	ent_min = entropyFromDist(data, bins=100)
+	direction = vects[0]
+	for v in vects[1:]:
+		data = projectScatter(v, points=points)
+		ent = entropyFromDist(data, bins=100)
+		if ent< ent_min:
+			ent_min = ent
+			direction = v
+
+	print("Reducing data to 1D...")
+	data = projectScatter(direction, points)
+	print("Converting data to energy scale...")
+	energies = hist.distToEV(data)
+	print("Computing resolutions...")
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="3D PCA with Optimized Projection", xlabel="Energy [eV]", drawPlot=True)
+	
+	return fwhm_list
+	
 
 #fig1 = plt.figure()
 #ax1 = fig1.add_subplot(121)
