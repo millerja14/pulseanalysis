@@ -37,7 +37,7 @@ def plotTrace(pulse=None):
 	ax.plot(x, trace)
 	ax.set_xlabel("Time [mS]")
 	ax.set_ylabel("Phase Shift [rad]")
-	ax.set_title("Photon Pulse")
+	ax.set_title("Fe55 Photon Pulse")
 
 	plt.show()
 	
