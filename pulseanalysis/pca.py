@@ -452,7 +452,68 @@ def allVectsND(dim, norm, steps=10):
 	
 	return vlist
 
-def nSphereToCartesian(phi, thetas, norm=1):
+def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,.2]):
+	
+	if points is None:
+		print("No points given")
+		print("Extracting traces from file...")
+		traces = mkid.loadTraces()
+		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
+		points = generateScatter(dim, traces)
+
+	norm = 1
+	bins = 100
+
+	params = (points, norm, bins)
+
+	phi = slice(0, 360, interval)
+	theta = slice(0, 180, interval)
+
+	start = np.ones(dim-1)*90
+	bounds = np.empty(dim-1, dtype='object')
+	for i in range(dim-1):
+		bounds[i] = (0,180)	
+
+	print("Bounds: ", bounds)	
+
+	opt = optimize.minimize(entropyFromSpherical, start, args=params, bounds=bounds)
+
+	if not opt.success:
+		print(opt.message)
+
+	direction = nSphereToCartesian(*opt.x)
+
+	if True:
+		fig = plt.figure()
+		#ax = plt.axes(projection='3d')
+		ax = plt.axes()
+		ax.scatter(*np.rollaxis(points, 1), marker='x')
+		#opt_points = np.array([[0,0,0], 3*direction]).T
+		opt_points = np.array([[0,0], 3*direction]).T
+
+	ax.plot(*opt_points, color='green', label='Optimized Direction')
+
+	plt.show()
+
+	data = projectScatter(direction, points)
+	energies = hist.distToEV(data)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA with Optimized Projection"), xlabel="Energy [eV]", drawPlot=True)
+
+	return direction, fwhm_list
+
+def entropyFromSpherical(coords, *params):
+	
+	points, norm, bins = params
+	
+	v = nSphereToCartesian(coords[0], *coords[1:], norm=norm)
+	
+	data = projectScatter(v, points=points)
+
+	ent = entropyFromDist(data, bins)
+
+	return ent
+
+def nSphereToCartesian(phi, *thetas, norm=1):
 	thetas = np.array(thetas)
 	ang = np.radians(np.append(thetas, phi))
 
