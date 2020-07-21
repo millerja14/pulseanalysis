@@ -430,15 +430,14 @@ def showSearchPoints3D(direction=[8,5,0]):
 
 def allVectsND(dim, norm, steps=10):
 	
-	nvects = steps**(dim-1) * (2**dim)
+	nvects = (2*steps)**(dim-1)
 	split = nvects//2
 	vlist = np.zeros(shape=(nvects, dim))
 	
 	if dim==1:
 		vlist[0] = norm
-		vlist[1] = -norm
 	else:
-		group = steps**(dim-2) * (2**(dim-1))
+		group = (2*steps)**(dim-2)
 		
 		if (dim-1)==1:
 			start = 0
@@ -452,9 +451,6 @@ def allVectsND(dim, norm, steps=10):
 			vlist[split+i*group:split+(i+1)*group, 0] = -np.sqrt(norm**2-n**2)
 	
 	return vlist
-
-def reflectVects(vects):
-	return NotImplemented
 
 def showAllVects3D(steps=10):
 	points = generate3DScatter()
@@ -532,9 +528,9 @@ def optimizePCAResolution3D(points=None, npeaks=None, bw_list=None):
 	print("Computing resolutions...")
 	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="3D PCA with Optimized Projection", xlabel="Energy [eV]", drawPlot=True)
 
-	return fwhm_list
+	return fwhm_list, direction
 
-def optimizePCAResolution(dim=3, points=None, npeaks=None, bw_list=None):
+def optimizePCAResolution(dim=3, steps=10, points=None, npeaks=None, bw_list=None):
 	if points is None:
 		print("No points given")
 		print("Extracting traces from file...")
@@ -551,7 +547,7 @@ def optimizePCAResolution(dim=3, points=None, npeaks=None, bw_list=None):
 
 
 	print("Getting optimized direction...")
-	vects = allVectsND(dim, 1, steps=10)
+	vects = allVectsND(dim, 1, steps=steps)
 	
 	data = projectScatter(vects[0], points=points)
 	ent_min = entropyFromDist(data, bins=100)
@@ -570,7 +566,7 @@ def optimizePCAResolution(dim=3, points=None, npeaks=None, bw_list=None):
 	print("Computing resolutions...")
 	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA with Optimized Projection)"), xlabel="Energy [eV]", drawPlot=True)
 	
-	return fwhm_list
+	return fwhm_list, direction
 	
 
 #fig1 = plt.figure()
