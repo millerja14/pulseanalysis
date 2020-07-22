@@ -452,6 +452,19 @@ def allVectsND(dim, norm, steps=10):
 	
 	return vlist
 
+def plotEntropy(samples=1000):
+	points = generateScatter(2, mkid.loadTraces())
+
+	phi = np.linspace(0, 180, samples)
+	ent = np.zeros(samples)
+	for i, p in enumerate(phi):
+		ent[i] = entropyFromSpherical([p], points, 1, 100)
+
+	fig = plt.figure()
+	ax = plt.axes()
+	ax.plot(phi, ent)
+	plt.show()
+
 def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,.2]):
 	
 	if points is None:
@@ -469,13 +482,14 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 	phi = slice(0, 360, interval)
 	theta = slice(0, 180, interval)
 
-	start = np.ones(dim-1)*90
+	start = np.array(26.6)
 	bounds = np.empty(dim-1, dtype='object')
 	for i in range(dim-1):
 		bounds[i] = (0,180)	
 
 	print("Bounds: ", bounds)	
 
+	#opt = optimize.brute(entropyFromSpherical, (phi,), args=params)
 	opt = optimize.minimize(entropyFromSpherical, start, args=params, bounds=bounds)
 
 	if not opt.success:
@@ -502,7 +516,7 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 	return direction, fwhm_list
 
 def entropyFromSpherical(coords, *params):
-	
+
 	points, norm, bins = params
 	
 	v = nSphereToCartesian(coords[0], *coords[1:], norm=norm)
