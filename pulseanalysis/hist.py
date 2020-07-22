@@ -285,7 +285,7 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 
 	for i in range(cutoffs.size - 1):
 		data_split.append(data[(data>cutoffs[i]) & (data<=cutoffs[i+1])])
-		fwhm, dist = getFWHM(data_split[i], npeaks=1, bw=bw_list[i], samples=samples, drawPlot=True)
+		fwhm, dist = getFWHM(data_split[i], npeaks=1, bw=bw_list[i], samples=samples, drawPlot=drawPlot)
 		fwhm_list.append(fwhm)
 		dist_list.append(dist)
 
