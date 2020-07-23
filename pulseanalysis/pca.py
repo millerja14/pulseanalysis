@@ -454,11 +454,12 @@ def allVectsND(dim, norm, steps=10):
 
 def plotEntropy(dim, samples=100):
 	
-	if not (dim == 2 or dim == 3):
-		raise ValueError("Can only plot for 2 or 3 dimensions.")
+	if not (dim == 2 or dim == 3 or dim == 4):
+		raise ValueError("Can only plot for 2 or 3 or 4 dimensions.")
 
 	points = generateScatter(dim, mkid.loadTraces())
 	phi = np.linspace(0, 180, samples)
+	theta = np.linspace(0, 180, samples)
 
 	if dim == 2:
 		ent = np.zeros(samples)
@@ -468,10 +469,14 @@ def plotEntropy(dim, samples=100):
 		fig = plt.figure()
 		ax = plt.axes()
 		ax.plot(phi, ent)
+		
+		ax.set_xlabel("Phi [degrees]")
+		ax.set_ylabel("Shannon Entropy")
+		ax.set_title("Entropy in 2D")
+
 		plt.show()
 
-	if dim == 3:
-		theta = np.linspace(0, 180, samples)
+	elif dim == 3:
 		ent = np.zeros(shape=(samples, samples))
 		for i, p in enumerate(phi):
 			for j, t in enumerate(theta):
@@ -482,7 +487,21 @@ def plotEntropy(dim, samples=100):
 		fig = plt.figure()
 		ax = plt.axes(projection='3d')
 		ax.plot_surface(P, T, ent)
+		
+		ax.set_xlabel("Phi [degrees]")
+		ax.set_ylabel("Theta [degrees]")
+		ax.set_zlabel("Shannon Entropy")
+
+		ax.set_title("Entropy in 3D")
+
 		plt.show()
+	
+	elif dim == 4:
+		ent = np.zeros(shape=(samples, samples, samples))
+		for i, p in enumerate(phi):
+			for j, t1 in enumerate(theta):
+				for k, t2 in enumerate(theta):
+					ent[i, j, k] = entropyFromSpherical([p,t1,t2], points, 1, 100)
 	
 	print("Minimum entropy: ", np.amin(ent))
 
@@ -510,36 +529,28 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 
 	print("Bounds: ", bounds)	
 
+	#isimp = 60*np.ones(shape=(dim, dim-1))
+	#for i in range(dim-1):
+	#	isimp[i, i] = 120
+	#isimp[-1,:] = np.ones(dim-1)*60
+
 	isimp = np.zeros(shape=(dim, dim-1))
-	for i in range(dim-1):
-		isimp[i, i] = 180
-	isimp[-1,:] = np.ones(dim-1)*0
+	for i in range(dim):
+		isimp[i,:] = 180*np.random.rand(dim-1)
 
 	print("Initial Simplex: ", isimp)
 
 	#opt = optimize.brute(entropyFromSpherical, (phi,), args=params)
-	opt = optimize.minimize(entropyFromSpherical, start, args=params, method='Nelder-Mead', options={'disp': True, 'return_all': True, 'initial_simplex': isimp, 'xatol': 0.0001, 'fatol': 0.0001})
+	opt = optimize.minimize(entropyFromSpherical, start, args=params, method='Nelder-Mead', options={'disp': True, 'return_all': True, 'initial_simplex': isimp, 'xatol': 0.0001, 'fatol': 0.0001, 'adaptive': True})
 
 	if not opt.success:
 		print(opt.message)
 
 	direction = nSphereToCartesian(*opt.x)
 
-	if False:
-		fig = plt.figure()
-		#ax = plt.axes(projection='3d')
-		ax = plt.axes()
-		ax.scatter(*np.rollaxis(points, 1), marker='x')
-		#opt_points = np.array([[0,0,0], 3*direction]).T
-		opt_points = np.array([[0,0], 3*direction]).T
-
-		ax.plot(*opt_points, color='green', label='Optimized Direction')
-
-		plt.show()
-
 	data = projectScatter(direction, points)
 	energies = hist.distToEV(data)
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA with Optimized Projection"), xlabel="Energy [eV]", drawPlot=False)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA with Optimized Projection"), xlabel="Energy [eV]", drawPlot=True)
 
 	return direction, fwhm_list
 
