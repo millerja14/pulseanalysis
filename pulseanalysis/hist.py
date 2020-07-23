@@ -311,7 +311,7 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 			
 			ax.set_title(title)
 
-			ax.set_xlim(5500, 6800)		
+			#ax.set_xlim(5500, 6800)		
 
 			ax.legend(loc='upper right')
 
