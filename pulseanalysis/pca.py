@@ -215,8 +215,14 @@ def projectScatter(direction, points=None, drawPlot=False):
 	return proj
 
 def entropyFromDist(data, bins):
-	hist = np.histogram(data, bins=bins, density=True)[0]
-	ent = -(hist*np.ma.log(hist)).sum()
+	
+	data_scaled = data
+	#data_scaled = hist.distToEV(data)
+
+	nValues = np.size(data_scaled)
+
+	histogram = np.histogram(data_scaled, bins=bins)[0]/nValues
+	ent = -(histogram*np.ma.log(histogram)).sum()
 
 	return ent
 
@@ -344,8 +350,7 @@ def getEntropy3D_1step(degree, *params):
 
 	data = project3DScatter(points, direction=unit_direction)
 
-	hist = np.histogram(data, bins=bins, density=True)[0]
-	ent = -(hist*np.ma.log(hist)).sum()
+	ent = entropyFromDist(data, 100)
 
 	return ent
 	
@@ -504,6 +509,20 @@ def plotEntropy(dim, samples=100):
 					ent[i, j, k] = entropyFromSpherical([p,t1,t2], points, 1, 100)
 	
 	print("Minimum entropy: ", np.amin(ent))
+	
+
+	direction_index = np.unravel_index(np.argmin(ent, axis=None), ent.shape)
+	direction = np.zeros(len(direction_index))
+	for i, loc in enumerate(direction_index):
+		direction[i] =  theta[loc]
+	direction_c = nSphereToCartesian(direction)
+	data = projectScatter(direction_c, points)
+	energies = hist.distToEV(data)
+	
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=2, bw_list=[.15,.2], desc=(str(dim) + "D PCA with Optimized Projection"), xlabel="Energy [eV]", drawPlot=True)
+
+	print("Best direction (spherical):", direction)
+	print("Best direction (cartesian):", direction_c)
 
 def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,.2]):
 	
@@ -519,14 +538,12 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 
 	params = (points, norm, bins)
 
-	phi = slice(0, 360, interval)
-	theta = slice(0, 180, interval)
-
 	start = np.zeros(dim-1)
-	bounds = np.empty(dim-1, dtype='object')
+	#bounds = np.empty(dim-1, dtype='object')
+	bounds = []
 	for i in range(dim-1):
-		bounds[i] = (0,180)	
-
+		#bounds[i] = (0,180)	
+		bounds.append((0,180))
 	print("Bounds: ", bounds)	
 
 	#isimp = 60*np.ones(shape=(dim, dim-1))
@@ -534,14 +551,16 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 	#	isimp[i, i] = 120
 	#isimp[-1,:] = np.ones(dim-1)*60
 
-	isimp = np.zeros(shape=(dim, dim-1))
-	for i in range(dim):
-		isimp[i,:] = 180*np.random.rand(dim-1)
+	#isimp = np.zeros(shape=(dim, dim-1))
+	#for i in range(dim):
+	#	isimp[i,:] = 180*np.random.rand(dim-1)
 
-	print("Initial Simplex: ", isimp)
+	#print("Initial Simplex: ", isimp)
 
 	#opt = optimize.brute(entropyFromSpherical, (phi,), args=params)
-	opt = optimize.minimize(entropyFromSpherical, start, args=params, method='Nelder-Mead', options={'disp': True, 'return_all': True, 'initial_simplex': isimp, 'xatol': 0.0001, 'fatol': 0.0001, 'adaptive': True})
+	opt = optimize.dual_annealing(entropyFromSpherical, bounds, args=params)
+	print("Minimum entropy found: ", opt.fun)
+
 
 	if not opt.success:
 		print(opt.message)
@@ -549,6 +568,13 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 	direction = nSphereToCartesian(*opt.x)
 
 	data = projectScatter(direction, points)
+	
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.hist(data, bins='auto')
+	ax.set_title("Raw Data - Not Energies")
+	plt.show()
+	
 	energies = hist.distToEV(data)
 	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA with Optimized Projection"), xlabel="Energy [eV]", drawPlot=True)
 
