@@ -5,8 +5,10 @@ import matplotlib as mpl
 mpl.use('tkagg')
 import matplotlib.pyplot as plt
 mpl.rcParams['font.size'] = 22
-mpl.rcParams['lines.linewidth'] = 3.0
+mpl.rcParams['lines.linewidth'] = 1.0
 mpl.rcParams['axes.labelpad'] = 6.0
+import matplotlib.gridspec as gridspec
+import matplotlib.animation as animation
 
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
@@ -815,7 +817,55 @@ def optimizePCAResolution(dim=3, steps=10, points=None, npeaks=None, bw_list=Non
 	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA with Optimized Projection)"), xlabel="Energy [eV]", drawPlot=True)
 	
 	return fwhm_list, direction
+
+def scatterAnim(angle=180, start_dir=[0,1]):
+		
+	start_dir = np.array(start_dir)
+
+	points = generateScatter(2)
+	direction_points = np.array([[0,0], 3*start_dir]).T	
+
+	fig = plt.figure()
+	ax_points = fig.add_subplot(121)
+	ax_points.set_xlim(-4, 6)
+	ax_points.set_ylim(-5, 4)
+
+	ax_hist = fig.add_subplot(122)
+
+	ax_points.scatter(points[:,0], points[:,1], marker='x', color='b')
+	draw1, = ax_points.plot(*direction_points, linewidth=3, color='g', label='')
+	ax_points.set(xlabel='PC1', ylabel='PC2', title='Photon Pulses in 2D Space')
+
+	ax_hist.hist([], bins=100, density=True)
+	ax_hist.set(xlabel='Projection [arb.]', ylabel='Frequency', title='1D Projection')
+
+	draw = [draw1]
+
+	def animate(d):
+		theta = np.radians(d)
 	
+		c, s = np.cos(theta), np.sin(theta)
+		r = np.array(((c, s), (-s, c)))
+		direction_r = r @ start_dir
+		direction_r = np.array(direction_r)
+
+		direction_r_points = np.array([[0,0], 3*direction_r]).T
+		draw[0].set_data(*direction_r_points)
+		draw[0].set_label("Angle: {0:.2f} degrees".format(d))
+		ax_points.legend(loc='upper right')
+		
+
+		dist = projectScatter(direction_r, points)		
+		ax_hist.clear()
+		ax_hist.hist(dist, bins=50, density=True)
+		ax_hist.set(xlabel='Projection [arb.]', ylabel='Frequency', title='1D Projection')
+
+		return draw
+
+	dsteps = np.linspace(0, angle, 500)
+	ani = animation.FuncAnimation(fig, animate, frames=dsteps, interval=1)
+
+	plt.show()
 
 #fig1 = plt.figure()
 #ax1 = fig1.add_subplot(121)
