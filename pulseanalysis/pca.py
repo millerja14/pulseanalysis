@@ -753,6 +753,35 @@ def optimizePCAResolution2D(points=None, npeaks=None, bw_list=None):
 	
 	return fwhm_list
 
+def plotProjection2D(direction=[9, 4.5], points=None, npeaks=None, bw_list=None):
+	
+	direction = np.array(direction)
+
+	if points is None:	
+		print("No points given")
+		print("Extracting traces from file...")
+		traces = mkid.loadTraces()
+		print("Getting PCA decomposition...")
+		points = generate2DScatter(traces)
+
+	if (bw_list is not None) and (npeaks is not None):
+		if not (len(bw_list) == npeaks):
+			raise ValueError("Bandwidth list must match number of peaks.")	
+		
+	if (npeaks is None) and (bw_list is not None):
+		npeaks = len(bw_list)	
+
+	print("Getting direction...")
+	direction = direction/np.linalg.norm(direction)
+	print("Reducing data to 1D...")
+	data = project2DScatter(points, direction=direction)
+	print("Converting data to energy scale...")
+	energies = hist.distToEV(data)
+	print("Computing resolutions...")
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc="2D PCA Projected onto <{0:.2f}, {1:.2f}>".format(*direction), xlabel="Energy [eV]", drawPlot=True)
+	
+	return fwhm_list
+
 def optimizePCAResolution3D(points=None, npeaks=None, bw_list=None):
 	if points is None:
 		print("No points given")
@@ -826,6 +855,8 @@ def scatterAnim(angle=180, start_dir=[0,1]):
 	direction_points = np.array([[0,0], 3*start_dir]).T	
 
 	fig = plt.figure()
+	fig.set_size_inches(19.2, 10.8, True)
+
 	ax_points = fig.add_subplot(121)
 	ax_points.set_xlim(-4, 6)
 	ax_points.set_ylim(-5, 4)
@@ -838,6 +869,7 @@ def scatterAnim(angle=180, start_dir=[0,1]):
 
 	ax_hist.hist([], bins=100, density=True)
 	ax_hist.set(xlabel='Projection [arb.]', ylabel='Frequency', title='1D Projection')
+	ax_hist.set_xlim(-4,4)
 
 	draw = [draw1]
 
@@ -859,11 +891,16 @@ def scatterAnim(angle=180, start_dir=[0,1]):
 		ax_hist.clear()
 		ax_hist.hist(dist, bins=50, density=True)
 		ax_hist.set(xlabel='Projection [arb.]', ylabel='Frequency', title='1D Projection')
+		ax_hist.set_xlim(-4,4)		
 
 		return draw
 
-	dsteps = np.linspace(0, angle, 500)
-	ani = animation.FuncAnimation(fig, animate, frames=dsteps, interval=1)
+	dsteps = np.linspace(0, angle, 100)
+	anim = animation.FuncAnimation(fig, animate, frames=dsteps, interval=30)
+
+	
+	writer = animation.PillowWriter(fps=30)
+	anim.save('./proj_fastish.gif', writer=writer, dpi=100)
 
 	plt.show()
 
