@@ -300,7 +300,7 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 			else:
 				bw_str = str(bw_list[i])
 			#ax.plot(x, dist*height, label="BW: " + bw_str + " FWHM: " + str(round(fwhm_list[i].item(),2)))
-			ax.plot(x, dist*height, label="FWHM: " + str(round(fwhm_list[i].item(),2)) + " eV")
+			ax.plot(x, dist*height, label="FWHM: " + str(round(fwhm_list[i].item(),2)) + " eV", linewidth=3)
 			ax.set_ylabel("Frequencies")
 			if not xlabel=="":
 				ax.set_xlabel(xlabel)
