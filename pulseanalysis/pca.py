@@ -16,6 +16,47 @@ import scipy.spatial.transform as transform
 import pulseanalysis.hist as hist
 import pulseanalysis.data as mkid
 
+def plotNComponents(n, traces=None):
+	if not isinstance(traces, np.ndarray):
+		print("No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+	
+	nPoints = traces.shape[0]
+
+	traceAvg = np.mean(traces, axis=0)
+
+	B = traces - np.tile(traceAvg, (nPoints, 1))
+
+	U, S, VT = np.linalg.svd(B, full_matrices=False)
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.plot(traces[0])
+	ax.set_title("Full Pulse")
+	ax.axes.xaxis.set_visible(False)
+	ax.axes.yaxis.set_visible(False)
+	plt.savefig("./decomp/pulse.png")
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.plot(traceAvg)
+	ax.set_title("Average Pulse")
+	ax.axes.xaxis.set_visible(False)
+	ax.axes.yaxis.set_visible(False)
+	plt.savefig("./decomp/PC0.png")
+
+	print(S)
+	varfrac = 100*(S**2/np.sum(S**2))
+
+	for i in range(n):
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.plot(-VT[i,:])
+		ax.axes.xaxis.set_visible(False)
+		ax.axes.yaxis.set_visible(False)
+		ax.set_title("PC{0}: {1:.2f}% of Variance".format(i+1, varfrac[i]))
+		plt.savefig("./decomp/PC{0}.png".format(i+1))
+
 def principalVariances(traces=None):
 	if not isinstance(traces, np.ndarray):
 		print("No traces given, getting default traces...")
@@ -288,10 +329,12 @@ def entropyFromDist(data, labels=None, bins=100, drawPlot=False):
 
 		if drawPlot:
 			fig = plt.figure()
+			fig.suptitle("Scaled To Energy Scale")
+
 			ax1 = fig.add_subplot(121)
 			ax1.hist(data0, bins=bins, alpha=0.5)
-			ax1.hist(data1, bins=bins, alpha=0.5)
-	
+			ax1.hist(data1, bins=bins, alpha=0.5)	
+
 			ax2 = fig.add_subplot(122)
 			ax2.hist(data*scale, bins=bins)
 			
@@ -301,9 +344,35 @@ def entropyFromDist(data, labels=None, bins=100, drawPlot=False):
 		
 
 	nValues = np.size(data_scaled)
+	
+	minVal = np.amin(data_scaled)-1
+	maxVal = np.amax(data_scaled)+1
+	
+	binWidth = 10
+	
+	nBins = int((maxVal-minVal)//binWidth + 2)
 
-	histogram = np.histogram(data_scaled, bins=bins)[0]/nValues
-	ent = -(histogram*np.ma.log(histogram)).sum()
+
+	bins_list = np.linspace(minVal, minVal+binWidth*nBins, nBins, endpoint=False)
+
+	histogram = np.histogram(data_scaled, bins=bins_list)
+	probs = histogram[0]/nValues
+
+	ent = -(probs*np.ma.log(probs)).sum()
+
+	if drawPlot:
+		
+		print("nValues", nValues)
+		print("minVal", minVal)
+		print("maxVal", maxVal)
+		print("nBins", nBins)
+		print("bins_list", bins_list)
+
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.hist(data_scaled, bins=bins_list)
+		ax.set_title("Data binned for Entropy Calculation")
+		plt.show()	
 
 	return ent
 
