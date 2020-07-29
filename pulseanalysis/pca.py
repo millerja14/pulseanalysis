@@ -689,7 +689,7 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 
 	opt = optimize.dual_annealing(entropyFromSpherical, bounds, args=params)
 	
-	params = (points, labels, norm, True)
+	params = (points, labels, norm, False)
 	ent_min = entropyFromSpherical(opt.x, *params)
 	print("Minimum entropy found: ", ent_min)
 
@@ -700,13 +700,22 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 
 	data = projectScatter(direction, points)
 	
-	fig = plt.figure()
-	ax = fig.add_subplot(111)
-	ax.hist(data, bins='auto')
-	ax.set_title("Raw Data - Not Energies")
-	plt.show()
-	
 	energies = hist.distToEV(data)
+	
+	if drawPlot:
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.hist(data, bins='auto')
+		ax.set_title("Raw Data - Not Energies")
+		
+
+		fig2 = plt.figure()
+		ax2 = fig2.add_subplot(111)
+		ax2.hist(energies, bins='auto')
+		ax2.set_title("Energy Data")
+
+		plt.show()
+		
 	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA with Optimized Projection"), xlabel="Energy [eV]", drawPlot=True)
 
 	return direction, fwhm_list
