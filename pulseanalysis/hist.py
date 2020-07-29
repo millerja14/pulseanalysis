@@ -67,11 +67,26 @@ def resolveDoublePeak(data=None, peak1=5888, peak2=5899, A=0.5, B=0.5, bw=None, 
 	return False
 
 def distToEV(values, peaks=e_peaks, drawPlot=False):
+
 	value_space  = np.linspace(np.amin(values), np.amax(values), 1000)
 	kernel = stats.gaussian_kde(values)
 	values_dist = kernel(value_space)
 	peak_indices, properties = find_peaks(values_dist, prominence=0, height=0)
 	heights = properties["peak_heights"]
+
+	# select proper number of largest peaks
+	idx = np.sort(np.argsort(heights)[-2:])
+	peak_indices = np.take(peak_indices, idx)
+	heights = np.take(heights, idx)
+
+	#fig = plt.figure()
+	#ax = fig.add_subplot(111)
+	#ax.hist(values, bins='auto', density=True)
+	#ax.plot(value_space, values_dist)
+	#ax.set_title("distToEV KDE fit")
+	#plt.show()
+	#print("distToEV peaks locations: ", np.take(value_space, peak_indices))
+	#print("distToEV peak heights: ", heights)
 
 	# conversions from value space to energy space
 	e_scale = np.abs((e_peaks[1] - e_peaks[0])/(value_space[peak_indices[0]] - value_space[peak_indices[1]]))
@@ -285,7 +300,7 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 
 	for i in range(cutoffs.size - 1):
 		data_split.append(data[(data>cutoffs[i]) & (data<=cutoffs[i+1])])
-		fwhm, dist = getFWHM(data_split[i], npeaks=1, bw=bw_list[i], samples=samples, drawPlot=drawPlot)
+		fwhm, dist = getFWHM(data_split[i], npeaks=1, bw=bw_list[i], samples=samples, drawPlot=False)
 		fwhm_list.append(fwhm)
 		dist_list.append(dist)
 
