@@ -196,8 +196,8 @@ def getFWHM(data, npeaks=None, bw=None, samples=1000, desc="", xlabel="", drawPl
 	heights = properties["peak_heights"]
 
 	# select proper number of largest peaks
-	idx = np.argsort(heights)[-npeaks:]
-	peak_indices = np.sort(np.take(peak_indices, idx))
+	idx = np.sort(np.argsort(heights)[-npeaks:])
+	peak_indices = np.take(peak_indices, idx)
 	prominences = np.take(prominences, idx)
 	heights = np.take(heights, idx)
 
@@ -284,9 +284,9 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 
 	# get npeaks greatest peak heights
 	peak_heights = peak_properties["peak_heights"]
-	idx = np.argsort(peak_heights)[-npeaks:]
-	peak_indices_filtered = np.sort(np.take(peak_indices, idx))
-	peak_heights_filtered = dist[peak_indices_filtered]
+	idx = np.sort(np.argsort(peak_heights)[-npeaks:])
+	peak_indices_filtered = np.take(peak_indices, idx)
+	peak_heights_filtered = np.take(peak_heights, idx)
 	rel_peak_heights = peak_heights_filtered/np.sum(peak_heights_filtered)	
 
 	# get most prominent minimums
