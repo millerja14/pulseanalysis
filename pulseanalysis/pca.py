@@ -304,7 +304,7 @@ def projectScatter(direction, points=None, drawPlot=False):
 
 	return proj
 
-def entropyFromDist(data, labels=None, bins=100, drawPlot=False):
+def entropyFromDist(data, labels=None, drawPlot=False):
 	
 	if labels is None:
 		data_scaled = data
@@ -314,16 +314,10 @@ def entropyFromDist(data, labels=None, bins=100, drawPlot=False):
 		data0 = data[labels == 0]
 		data1 = data[labels == 1]
 
-		histogram0 = np.histogram(data0, bins=bins)
-		histogram1 = np.histogram(data1, bins=bins)
+		pos0 = np.mean(data0)
+		pos1 = np.mean(data1)
 
-		maxpos0 = np.argmax(histogram0[0])
-		maxpos1 = np.argmax(histogram1[0])
-
-		peak0 = (histogram0[1][maxpos0]+histogram0[1][maxpos0+1])/2
-		peak1 = (histogram1[1][maxpos1]+histogram1[1][maxpos1+1])/2
-
-		deltapeak = np.abs(peak0-peak1)
+		deltapeak = np.abs(pos0-pos1)
 
 		scale = peak_sep_ev/deltapeak
 
@@ -332,11 +326,11 @@ def entropyFromDist(data, labels=None, bins=100, drawPlot=False):
 			fig.suptitle("Scaled To Energy Scale")
 
 			ax1 = fig.add_subplot(121)
-			ax1.hist(data0, bins=bins, alpha=0.5)
-			ax1.hist(data1, bins=bins, alpha=0.5)	
+			ax1.hist(data0, bins='auto', alpha=0.5)
+			ax1.hist(data1, bins='auto', alpha=0.5)	
 
 			ax2 = fig.add_subplot(122)
-			ax2.hist(data*scale, bins=bins)
+			ax2.hist(data*scale, bins='auto')
 			
 			plt.show()
 
@@ -362,11 +356,11 @@ def entropyFromDist(data, labels=None, bins=100, drawPlot=False):
 
 	if drawPlot:
 		
-		print("nValues", nValues)
-		print("minVal", minVal)
-		print("maxVal", maxVal)
-		print("nBins", nBins)
-		print("bins_list", bins_list)
+		#print("nValues", nValues)
+		#print("minVal", minVal)
+		#print("maxVal", maxVal)
+		#print("nBins", nBins)
+		#print("bins_list", bins_list)
 
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
@@ -378,7 +372,7 @@ def entropyFromDist(data, labels=None, bins=100, drawPlot=False):
 
 def getEntropy2D(degree, *params):
 
-	points, guess, bins = params
+	points, guess = params
 
 	theta = np.radians(degree[0])
 	c, s = np.cos(theta), np.sin(theta)
@@ -387,12 +381,12 @@ def getEntropy2D(degree, *params):
 	direction = R @ guess
 
 	data = project2DScatter(points, direction=direction)	
-	ent = entropyFromDist(data, bins=bins)
+	ent = entropyFromDist(data)
 
 	return ent
 
 def getEntropy3D(degree, *params):
-	points, guess, bins = params
+	points, guess = params
 
 	unit_guess = guess / np.linalg.norm(guess)
 
@@ -405,7 +399,7 @@ def getEntropy3D(degree, *params):
 	direction = R @ unit_guess
 
 	data = project3DScatter(points, direction=direction)
-	ent = entropyFromDist(data, bins=bins)
+	ent = entropyFromDist(data)
 
 	return ent
 	
@@ -414,7 +408,7 @@ def optimizeEntropy2D(points, direction_g=[8,5], d_range=90, interval=1):
 	
 	unit_direction_g = direction_g/np.linalg.norm(direction_g)
 
-	params = (points, unit_direction_g, 100)
+	params = (points, unit_direction_g)
 	
 	values = slice(-d_range, d_range, interval)
 	
@@ -446,7 +440,7 @@ def optimizeEntropy3D(points, direction_g=[8,5,0], d_range=90, interval=1):
 	print("unit_direction_2d: ", unit_direction_2d)
 	print("norm: ", np.linalg.norm(unit_direction_2d))
 
-	params = (points, unit_direction_2d, 100)
+	params = (points, unit_direction_2d)
 
 	values = slice(-d_range, d_range, interval)
 
@@ -493,14 +487,14 @@ def rotate3D(degree, ortho1, direction):
 	return direction_r2
 
 def getEntropy3D_1step(degree, *params):
-	points, ortho1, unit_direction_g, bins = params
+	points, ortho1, unit_direction_g = params
 
 	unit_direction = rotate3D(degree, ortho1, unit_direction_g)
 	unit_direction = unit_direction/np.linalg.norm(unit_direction)
 
 	data = project3DScatter(points, direction=unit_direction)
 
-	ent = entropyFromDist(data, bins=100)
+	ent = entropyFromDist(data)
 
 	return ent
 	
@@ -516,7 +510,7 @@ def optimizeEntropy3D_1step(points, direction_g=[8,5,0], d_range=90, interval=1)
 
 	ortho1 = x/np.linalg.norm(x)
 
-	params = (points, ortho1, unit_direction_g, 100)
+	params = (points, ortho1, unit_direction_g)
 
 	azim = slice(-d_range, d_range, interval)
 	polar = slice(0, 360, 1)
@@ -619,7 +613,7 @@ def plotEntropy(dim, samples=100):
 	if dim == 2:
 		ent = np.zeros(samples)
 		for i, p in enumerate(phi):
-			ent[i] = entropyFromSpherical([p], points, 1, 100)
+			ent[i] = entropyFromSpherical([p], points, None, 1, False)
 
 		fig = plt.figure()
 		ax = plt.axes()
@@ -635,7 +629,7 @@ def plotEntropy(dim, samples=100):
 		ent = np.zeros(shape=(samples, samples))
 		for i, p in enumerate(phi):
 			for j, t in enumerate(theta):
-				ent[i, j] = entropyFromSpherical([p,t], points, 1, 100)
+				ent[i, j] = entropyFromSpherical([p,t], points, None, 1, False)
 		
 		P, T = np.meshgrid(phi, theta)
 	
@@ -656,7 +650,7 @@ def plotEntropy(dim, samples=100):
 		for i, p in enumerate(phi):
 			for j, t1 in enumerate(theta):
 				for k, t2 in enumerate(theta):
-					ent[i, j, k] = entropyFromSpherical([p,t1,t2], points, 1, 100)
+					ent[i, j, k] = entropyFromSpherical([p,t1,t2], points, None, 1, False)
 	
 	print("Minimum entropy: ", np.amin(ent))
 	
@@ -684,36 +678,20 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 		points, labels = generateScatter_labeled(dim, traces)
 
 	norm = 1
-	bins = 100
 
-	params = (points, labels, norm, bins, False)
+	params = (points, labels, norm, False)
 
 	start = np.zeros(dim-1)
-	#bounds = np.empty(dim-1, dtype='object')
 	bounds = []
 	for i in range(dim-1):
 		#bounds[i] = (0,180)	
 		bounds.append((0,180))
-	print("Bounds: ", bounds)	
 
-	#isimp = 60*np.ones(shape=(dim, dim-1))
-	#for i in range(dim-1):
-	#	isimp[i, i] = 120
-	#isimp[-1,:] = np.ones(dim-1)*60
-
-	#isimp = np.zeros(shape=(dim, dim-1))
-	#for i in range(dim):
-	#	isimp[i,:] = 180*np.random.rand(dim-1)
-
-	#print("Initial Simplex: ", isimp)
-
-	#opt = optimize.brute(entropyFromSpherical, (phi,), args=params)
 	opt = optimize.dual_annealing(entropyFromSpherical, bounds, args=params)
 	
-	params = (points, labels, norm, bins, True)
+	params = (points, labels, norm, True)
 	ent_min = entropyFromSpherical(opt.x, *params)
 	print("Minimum entropy found: ", ent_min)
-
 
 	if not opt.success:
 		print(opt.message)
@@ -735,13 +713,13 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 
 def entropyFromSpherical(coords, *params):
 
-	points, labels, norm, bins, drawPlot = params
+	points, labels, norm, drawPlot = params
 	
 	v = nSphereToCartesian(coords[0], *coords[1:], norm=norm)
 	
 	data = projectScatter(v, points=points)
 
-	ent = entropyFromDist(data, labels=labels, bins=bins, drawPlot=drawPlot)
+	ent = entropyFromDist(data, labels=labels, drawPlot=drawPlot)
 
 	return ent
 
@@ -898,11 +876,11 @@ def optimizePCAResolution(dim=3, steps=10, points=None, npeaks=None, bw_list=Non
 	vects = allVectsND(dim, 1, steps=steps)
 	
 	data = projectScatter(vects[0], points=points)
-	ent_min = entropyFromDist(data, bins=100)
+	ent_min = entropyFromDist(data)
 	direction = vects[0]
 	for v in vects[1:]:
 		data = projectScatter(v, points=points)
-		ent = entropyFromDist(data, bins=100)
+		ent = entropyFromDist(data)
 		if ent< ent_min:
 			ent_min = ent
 			direction = v
