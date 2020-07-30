@@ -668,9 +668,9 @@ def plotEntropy(dim, samples=100):
 	print("Best direction (spherical):", direction)
 	print("Best direction (cartesian):", direction_c)
 
-def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,.2], drawPlot=False):
+def optimizeEntropyNSphere(dim, points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False):
 	
-	if points is None:
+	if (points is None) or (labels is None):
 		print("No points given")
 		print("Extracting traces from file...")
 		traces = mkid.loadTraces()
@@ -687,10 +687,16 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 		#bounds[i] = (0,180)	
 		bounds.append((0,180))
 
-	opt = optimize.dual_annealing(entropyFromSpherical, bounds, args=params)
+	maxiter = dim*1000
+	#maxiter = 5000
+
+	opt = optimize.differential_evolution(entropyFromSpherical, bounds, args=params, maxiter=maxiter, tol=0.0001, seed=seed)
 	
-	params = (points, labels, norm, False)
-	ent_min = entropyFromSpherical(opt.x, *params)
+	print(opt)
+
+	#params = (points, labels, norm, False)
+	#ent_min = entropyFromSpherical(opt.x, *params)
+	ent_min = opt.fun
 	print("Minimum entropy found: ", ent_min)
 
 	if not opt.success:
@@ -716,9 +722,59 @@ def optimizeEntropyNSphere(dim, points=None, interval=1, npeaks=2, bw_list=[.15,
 
 		plt.show()
 		
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA with Optimized Projection"), xlabel="Energy [eV]", drawPlot=True)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA. Entropy: " + str(ent_min)), xlabel="Energy [eV]", drawPlot=drawPlot)
 
-	return direction, fwhm_list
+	return opt, fwhm_list
+
+def plotNDOptimization(n=5, traces=None, seed=1234):
+	if n<2:
+		raise ValueError("N must be 2 or larger")
+
+	if traces is None:
+		print("No traces given")
+		print("Extracting traces from file...")
+		traces = mkid.loadTraces()
+
+	dim_list = []
+	entropy_list = []
+	first_fwhm_list = []
+	second_fwhm_list = []
+
+	for i in range(n-2):
+		dim =i+3
+		print("Optimizing in {}D".format(dim))
+		points, labels = generateScatter_labeled(dim, traces)
+		opt, fwhm = optimizeEntropyNSphere(dim, points=points, labels=labels, seed=seed)
+		
+		dim_list.append(dim)
+		entropy_list.append(opt.fun)
+		first_fwhm_list.append(fwhm[0])
+		second_fwhm_list.append(fwhm[1])
+	
+	print(dim_list)
+	print(entropy_list)
+	print(first_fwhm_list)
+	print(second_fwhm_list)
+
+	fig = plt.figure()
+	ax_fwhm = fig.add_subplot(121)
+	ax_ent = fig.add_subplot(122)
+	
+	ax_fwhm.plot(dim_list, first_fwhm_list, marker='x', label="Peak #1")
+	ax_fwhm.plot(dim_list, second_fwhm_list, marker='x', label="Peak #2")
+	ax_fwhm.set_title("Energy Resolution")
+	ax_fwhm.set_xlabel("PCA Dimension")
+	ax_fwhm.set_ylabel("FWHM [eV]")
+	ax_fwhm.legend(loc='upper right')
+
+	ax_ent.plot(dim_list, entropy_list, marker='x')
+	ax_ent.set_title("Minimum Entropy")
+	ax_ent.set_xlabel("PCA Dimension")
+	ax_ent.set_ylabel("Entropy")	
+
+	fig.suptitle("Seed: " + str(seed))
+
+	plt.show()
 
 def entropyFromSpherical(coords, *params):
 
