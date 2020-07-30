@@ -212,6 +212,30 @@ def generateScatter_labeled(dim, traces=None):
 
 	return points, labels
 
+def generateScatter_labeled_nthComps(comp_list=[1,2,3,4,9,15], traces=None):
+	if not isinstance(traces, np.ndarray):
+		print("No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+
+	labels = generateLabels(traces)
+	
+	comp_list = np.array(comp_list)
+	dim = np.size(comp_list)
+
+	nPoints = traces.shape[0]
+	traceAvg = np.mean(traces, axis=0)
+
+	B = traces-np.tile(traceAvg, (nPoints, 1))
+	
+	U, S, VT = np.linalg.svd(B/np.sqrt(nPoints), full_matrices=0)
+
+	points = np.zeros(shape=(nPoints, dim))
+
+	for j in range(B.shape[0]):
+		points[j,:] = np.take(VT, (comp_list-1), axis=0) @ B[j,:].T
+
+	return points, labels
+
 def generateScatter3D_labeled(traces=None):
 	if not isinstance(traces, np.ndarray):
 		print("No traces given, getting default traces...")
@@ -668,14 +692,20 @@ def plotEntropy(dim, samples=100):
 	print("Best direction (spherical):", direction)
 	print("Best direction (cartesian):", direction_c)
 
-def optimizeEntropyNSphere(dim, points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False):
+def optimizeEntropyNSphere(dim=3, comp_list=None, points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False):
+	
+	if comp_list is None:
+		comp_list = list(range(1, dim+1))
+	
+	dim = len(comp_list)
 	
 	if (points is None) or (labels is None):
 		print("No points given")
 		print("Extracting traces from file...")
 		traces = mkid.loadTraces()
 		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
-		points, labels = generateScatter_labeled(dim, traces)
+		
+		points, labels = generateScatter_labeled_nthComps(comp_list=comp_list, traces=traces)
 
 	norm = 1
 
@@ -722,7 +752,7 @@ def optimizeEntropyNSphere(dim, points=None, labels=None, interval=1, npeaks=2, 
 
 		plt.show()
 		
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA. Entropy: " + str(ent_min)), xlabel="Energy [eV]", drawPlot=drawPlot)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=("Comps " + str(comp_list) + " Entropy " + str(ent_min)), xlabel="Energy [eV]", drawPlot=drawPlot)
 
 	return opt, fwhm_list
 
@@ -744,7 +774,7 @@ def plotNDOptimization(n=5, traces=None, seed=1234):
 		dim =i+3
 		print("Optimizing in {}D".format(dim))
 		points, labels = generateScatter_labeled(dim, traces)
-		opt, fwhm = optimizeEntropyNSphere(dim, points=points, labels=labels, seed=seed)
+		opt, fwhm = optimizeEntropyNSphere(dim=dim, points=points, labels=labels, seed=seed)
 		
 		dim_list.append(dim)
 		entropy_list.append(opt.fun)
