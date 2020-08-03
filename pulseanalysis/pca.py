@@ -1,3 +1,11 @@
+cores="8"
+
+import os
+os.environ["MKL_NUM_THREADS"] = cores
+os.environ["NUMEXPR_NUM_THREADS"] = cores 
+os.environ["OMP_NUM_THREADS"] = cores
+
+import pickle
 import mkidcalculator as mc
 import numpy as np
 
@@ -716,11 +724,16 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, points=None, labels=None, inte
 	for i in range(dim-1):
 		#bounds[i] = (0,180)	
 		bounds.append((0,180))
+	
 
+	popsize = 350
+	tol=0.0001
+	mutation=1
 	maxiter = dim*1000
 	#maxiter = 5000
 
-	opt = optimize.differential_evolution(entropyFromSpherical, bounds, args=params, maxiter=maxiter, tol=0.0001, seed=seed)
+
+	opt = optimize.differential_evolution(entropyFromSpherical, bounds, args=params, maxiter=maxiter, popsize=popsize, tol=tol, mutation=mutation, seed=seed)
 	
 	print(opt)
 
@@ -752,9 +765,48 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, points=None, labels=None, inte
 
 		plt.show()
 		
+	# calculate fwhm of peaks
 	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=("Comps " + str(comp_list) + " Entropy " + str(ent_min)), xlabel="Energy [eV]", drawPlot=drawPlot)
 
+	# create file for saving optimization results
+	db_path = "./pca_data/optimization.pickle"
+	key = "dim" + str(dim)
+	others_key = "others"
+	if not os.path.isfile(db_path):
+		pickle.dump({}, open(db_path, "wb"))
+
+	db = pickle.load(open(db_path, "rb"))
+	
+	# create list for adding optimization results to	
+	if (others_key not in db):
+		db[others_key] = []
+
+	# creat dictionary for every optimization
+	entry = {"dimension": dim, "entropy": ent_min, "spherical": opt.x.tolist(), "fwhm": fwhm_list.tolist(), "popsize": popsize, "tol": tol, "mutation": mutation, "seed": seed, "nfev": opt.nfev, "nit": opt.nit}		
+
+	# add key to db if it is result with minimum entropy
+	# otherwise add to list of non-minimums
+	if (key not in db) or ((key in db) and (db[key]["entropy"] > ent_min)):
+		if key in db:
+			db[others_key].append(db[key])
+		db[key] = entry	
+	else:
+		db[others_key].append(entry)	
+	
+	# save db to file
+	pickle.dump(db, open(db_path, "wb"))
+
+
+
+	# convert coordinates to cartesian
+	cart = nSphereToCartesian(opt.x[0], *opt.x[1:], norm=1)
+	print("Cartesian: ", cart)
+	print("x/y direction: ", cart[0]/cart[1])
+
 	return opt, fwhm_list
+
+def optimizeEntropyNSphere_recursive(dim=3, comp_list=None, points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False):
+	return NotImplemented
 
 def plotNDOptimization(n=5, traces=None, seed=1234):
 	if n<2:
