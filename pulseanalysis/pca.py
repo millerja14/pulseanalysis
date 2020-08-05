@@ -633,19 +633,23 @@ def allVectsND(dim, norm, steps=10):
 	
 	return vlist
 
-def plotEntropy(dim, samples=100):
+def plotEntropy(dim, samples=100, showProjection=False):
+
+	'''
+	Plot the entropy landscape in 2 or 3 dimensions
+	'''
 	
 	if not (dim == 2 or dim == 3 or dim == 4):
 		raise ValueError("Can only plot for 2 or 3 or 4 dimensions.")
 
-	points = generateScatter(dim, mkid.loadTraces())
+	points, labels = generateScatter_labeled(dim, mkid.loadTraces())
 	phi = np.linspace(0, 180, samples)
 	theta = np.linspace(0, 180, samples)
 
 	if dim == 2:
 		ent = np.zeros(samples)
 		for i, p in enumerate(phi):
-			ent[i] = entropyFromSpherical([p], points, None, 1, False)
+			ent[i] = entropyFromSpherical([p], points, labels, 1, False)
 
 		fig = plt.figure()
 		ax = plt.axes()
@@ -661,7 +665,7 @@ def plotEntropy(dim, samples=100):
 		ent = np.zeros(shape=(samples, samples))
 		for i, p in enumerate(phi):
 			for j, t in enumerate(theta):
-				ent[i, j] = entropyFromSpherical([p,t], points, None, 1, False)
+				ent[i, j] = entropyFromSpherical([p,t], points, labels, 1, False)
 		
 		P, T = np.meshgrid(phi, theta)
 	
@@ -682,7 +686,7 @@ def plotEntropy(dim, samples=100):
 		for i, p in enumerate(phi):
 			for j, t1 in enumerate(theta):
 				for k, t2 in enumerate(theta):
-					ent[i, j, k] = entropyFromSpherical([p,t1,t2], points, None, 1, False)
+					ent[i, j, k] = entropyFromSpherical([p,t1,t2], points, labels, 1, False)
 	
 	print("Minimum entropy: ", np.amin(ent))
 	
@@ -695,12 +699,12 @@ def plotEntropy(dim, samples=100):
 	data = projectScatter(direction_c, points)
 	energies = hist.distToEV(data)
 	
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=2, bw_list=[.15,.2], desc=(str(dim) + "D PCA with Optimized Projection"), xlabel="Energy [eV]", drawPlot=True)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=2, bw_list=[.15,.2], desc=(str(dim) + "D PCA with Optimized Projection"), xlabel="Energy [eV]", drawPlot=showProjection)
 
 	print("Best direction (spherical):", direction)
 	print("Best direction (cartesian):", direction_c)
 
-def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False):
+def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False, verbose=True):
 	
 	start_coords = np.array(start_coords)	
 
@@ -744,12 +748,14 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, 
 	
 	# complete the final coordinate set if we used start coords
 	opt.x = np.array([*start_coords, *opt.x])	
-	print(opt)
+	if verbose:
+		print(opt)
 
 	#params = (points, labels, norm, False)
 	#ent_min = entropyFromSpherical(opt.x, *params)
 	ent_min = opt.fun
-	print("Minimum entropy found: ", ent_min)
+	if verbose:
+		print("Minimum entropy found: ", ent_min)
 
 	if not opt.success:
 		print(opt.message)
@@ -807,9 +813,10 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, 
 
 
 	# convert coordinates to cartesian
-	cart = nSphereToCartesian(opt.x[0], *opt.x[1:], norm=1)
-	print("Cartesian: ", cart)
-	print("x/y direction: ", cart[0]/cart[1])
+	if verbose:	
+		cart = nSphereToCartesian(opt.x[0], *opt.x[1:], norm=1)
+		print("Cartesian: ", cart)
+		print("x/y direction: ", cart[0]/cart[1])
 
 	return opt, fwhm_list
 
@@ -824,7 +831,7 @@ def optimizeEntropyNSphere_recursive(dim=7, comp_list=None, points=None, labels=
 	
 	return opt, fwhm_list
 
-def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False):
+def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False):
 
 	# get points if needed
 	if (points is None) or (labels is None):
@@ -832,17 +839,18 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2
 		print("Extracting traces from file...")
 		traces = mkid.loadTraces()
 		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
-		points, labels = generateScatter_labeled(dim=dim, traces=traces)
+		points, labels = generateScatter_labeled(dim=dim, traces=traces, verbose=False)
 	
 	# optimize in 2 dimensions as base case
 	if dim == 2:
-		print("Optimizing in 2D...")
-		opt, _ = optimizeEntropyNSphere(dim=2, points=points[:,:2], labels=labels, seed=seed, drawPlot=False)
+		if verbose:
+			print("Optimizing in 2D...")
+		opt, _ = optimizeEntropyNSphere(dim=2, points=points[:,:2], labels=labels, seed=seed, drawPlot=False, verbose=verbose)
 		direction = nSphereToCartesian(*opt.x)
 		direction = direction/np.linalg.norm(direction)
 	else:
 		# get the first n-1 components recursively
-		start_coords, results = optimizeEntropyCartesian_recursive(dim=dim-1, points=points, labels=labels, seed=seed, drawPlot=drawPlot)
+		start_coords, results = optimizeEntropyCartesian_recursive(dim=dim-1, points=points, labels=labels, seed=seed, verbose=verbose)
 		
 		# zip parameters
 		args = (points[:,:dim], labels, False)		
@@ -851,36 +859,39 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2
 		func = lambda x, *params : entropyFromCartesian([*start_coords, *x], *params)
 		
 		# arbitrary bounds for now
-		bounds = [(-10, 10)]
+		bounds = [(-50, 50)]
 		
 		popsize=100
+		tol = 0.0001	
 		
 		# generate starting population randomly
 		# make sure to include 0 in the starting population so that entropy can't go down
-		init = np.append(np.random.uniform(low=-10, high=10, size=(popsize-1,1)), [[0]], axis=0)
+		init = np.append(np.random.uniform(low=-50, high=50, size=(popsize-1,1)), [[0]], axis=0)
 		
 		# perform optimization		
-		print("Optimizing in " + str(dim) + "D...")
-		opt = optimize.differential_evolution(func, bounds, args=args, popsize=popsize, init=init, seed=seed)
+		if verbose:
+			print("Optimizing in " + str(dim) + "D...")
+		opt = optimize.differential_evolution(func, bounds, args=args, popsize=popsize, tol=tol, init=init, seed=seed)
 
 		# build direction vector and normalize
 		direction = np.array([*start_coords, *opt.x])
 		direction = direction/np.linalg.norm(direction)
 		
 	# print optimization results
-	print("Best direction: ", direction)
-	print("Best entropy: ", opt.fun)
-	if dim > 2:
-		delta = opt.fun - results[-1]["entropy"]
-		print("Delta entropy: ", delta)
-		if delta > 0:
-			print("ENTROPY INCREASED")	
-	print("----------------------------------------------")
+	if verbose:
+		print("Best direction: ", direction)
+		print("Best entropy: ", opt.fun)
+		if dim > 2:
+			delta = opt.fun - results[-1]["entropy"]
+			print("Delta entropy: ", delta)
+			if delta > 0:
+				print("ENTROPY INCREASED")	
+		print("----------------------------------------------")
 
 	# calculate fwhm
 	data = projectScatter(direction, points[:,:dim])
 	energies = hist.distToEV(data)
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=("Entropy " + str(opt.fun)), xlabel="Energy [eV]", drawPlot=drawPlot)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=("Entropy " + str(opt.fun)), xlabel="Energy [eV]", drawPlot=False)
 
 	# store data in dictionary for each result
 	result = {"dim": dim, "entropy": opt.fun, "direction": direction, "fwhm": fwhm_list}
@@ -893,7 +904,7 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2
 
 	return direction, results
 
-def plotNDOptimizationCartesian(n=5, points=None, labels=None, seed=1234):
+def plotNDOptimizationCartesian(n=5, points=None, labels=None, seed=1234, verbose=False):
 	
 	# test up to dimension n
 	if n<2:
@@ -909,7 +920,7 @@ def plotNDOptimizationCartesian(n=5, points=None, labels=None, seed=1234):
 		points, labels = generateScatter_labeled(dim=dim, traces=traces)
 	
 	# get optimization results
-	_, results = optimizeEntropyCartesian_recursive(dim=dim, points=points, labels=labels, seed=seed, drawPlot=False)	
+	_, results = optimizeEntropyCartesian_recursive(dim=dim, points=points, labels=labels, seed=seed, verbose=verbose)	
 
 	# plot data
 	dim_list = []
@@ -922,6 +933,12 @@ def plotNDOptimizationCartesian(n=5, points=None, labels=None, seed=1234):
 		entropy_list.append(obj["entropy"])
 		first_fwhm_list.append(obj["fwhm"][0])
 		second_fwhm_list.append(obj["fwhm"][1])
+	
+	delta_entropy_list = np.ediff1d(entropy_list)
+
+	indices = np.argsort(delta_entropy_list)
+	impact_dim_list = np.take(dim_list, indices+1)
+	print("Dimensions with highest impact: ", impact_dim_list)
 
 	fig = plt.figure()
 	ax_fwhm = fig.add_subplot(121)
