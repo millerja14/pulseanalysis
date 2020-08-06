@@ -24,6 +24,8 @@ import scipy.spatial.transform as transform
 import pulseanalysis.hist as hist
 import pulseanalysis.data as mkid
 
+db_path = "./pca_data/optimization.pickle"
+
 def plotNComponents(n, traces=None):
 	if not isinstance(traces, np.ndarray):
 		print("No traces given, getting default traces...")
@@ -714,7 +716,10 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, 
 
 	if comp_list is None:
 		comp_list = list(range(1, dim+1))
-	
+		usingCustomComps = False
+	else:
+		usingCustomComps = True	
+
 	dim = len(comp_list)
 	
 	if (points is None) or (labels is None):
@@ -729,21 +734,24 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, 
 
 	params = (points, labels, norm, False)
 
+	# create list of bounds that has the length of our optimization input (opt_dim)
+	# if no start coordinates are provided, this will have length dim
 	bounds = []
-	
 	opt_dim = dim-1-len(start_coords)	
-
 	for i in range(opt_dim):
 		bounds.append((0,180))
 	
+	# set optimization parameters
 	popsize = 350
 	tol=0.0001
 	mutation=1
 	maxiter = dim*1000
-	#maxiter = 5000
 
+	# create wrapper for optimization function
+	# allows us to use start coordinates if supplied
 	func = lambda x, *params : entropyFromSpherical([*start_coords, *x], *params)
 
+	# optimize
 	opt = optimize.differential_evolution(func, bounds, args=params, maxiter=maxiter, popsize=popsize, tol=tol, mutation=mutation, seed=seed)
 	
 	# complete the final coordinate set if we used start coords
@@ -751,8 +759,6 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, 
 	if verbose:
 		print(opt)
 
-	#params = (points, labels, norm, False)
-	#ent_min = entropyFromSpherical(opt.x, *params)
 	ent_min = opt.fun
 	if verbose:
 		print("Minimum entropy found: ", ent_min)
@@ -764,7 +770,8 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, 
 	direction = nSphereToCartesian(*opt.x)
 	data = projectScatter(direction, points)
 	energies = hist.distToEV(data)
-	
+
+	# plot intermediate data for debugging	
 	if drawPlot:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
@@ -782,33 +789,34 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, 
 	# calculate fwhm of peaks
 	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=("Comps " + str(comp_list) + " Entropy " + str(ent_min)), xlabel="Energy [eV]", drawPlot=drawPlot)
 
-	# create file for saving optimization results
-	db_path = "./pca_data/optimization.pickle"
-	key = "dim" + str(dim)
-	others_key = "others"
-	if not os.path.isfile(db_path):
-		pickle.dump({}, open(db_path, "wb"))
+	# save resutls to file if using first n components (not custom comp list)
+	if not usingCustomComps:
+		# create file for saving optimization results
+		key = "dim" + str(dim)
+		others_key = "others"
+		if not os.path.isfile(db_path):
+			pickle.dump({}, open(db_path, "wb"))
 
-	db = pickle.load(open(db_path, "rb"))
+		db = pickle.load(open(db_path, "rb"))
 	
-	# create list for adding optimization results to	
-	if (others_key not in db):
-		db[others_key] = []
+		# create list for adding optimization results to	
+		if (others_key not in db):
+			db[others_key] = []
 
-	# creat dictionary for every optimization
-	entry = {"dimension": dim, "entropy": ent_min, "spherical": opt.x.tolist(), "spherical_start": start_coords, "fwhm": fwhm_list.tolist(), "popsize": popsize, "tol": tol, "mutation": mutation, "seed": seed, "nfev": opt.nfev, "nit": opt.nit}		
+		# creat dictionary for every optimization
+		entry = {"dimension": dim, "entropy": ent_min, "spherical": opt.x.tolist(), "spherical_start": start_coords, "fwhm": fwhm_list.tolist(), "popsize": popsize, "tol": tol, "mutation": mutation, "seed": seed, "nfev": opt.nfev, "nit": opt.nit}		
 
-	# add key to db if it is result with minimum entropy
-	# otherwise add to list of non-minimums
-	if (key not in db) or ((key in db) and (db[key]["entropy"] > ent_min)):
-		if key in db:
-			db[others_key].append(db[key])
-		db[key] = entry	
-	else:
-		db[others_key].append(entry)	
+		# add key to db if it is result with minimum entropy
+		# otherwise add to list of non-minimums
+		if (key not in db) or ((key in db) and (db[key]["entropy"] > ent_min)):
+			if key in db:
+				db[others_key].append(db[key])
+			db[key] = entry	
+		else:
+			db[others_key].append(entry)	
 	
-	# save db to file
-	pickle.dump(db, open(db_path, "wb"))
+		# save db to file
+		pickle.dump(db, open(db_path, "wb"))
 
 
 
@@ -818,6 +826,14 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, 
 		print("Cartesian: ", cart)
 		print("x/y direction: ", cart[0]/cart[1])
 
+	return opt, fwhm_list
+
+def optimizeEntropyNSphere_bestComps(n=5, dim=10, seed=1234):
+	comp_list = getImpactfulComponents_cartesian(n=n, dim=dim)
+
+	print("Comp list: ", comp_list)
+	opt, fwhm_list = optimizeEntropyNSphere(comp_list=comp_list, seed=seed, drawPlot=True)
+	
 	return opt, fwhm_list
 
 def optimizeEntropyNSphere_recursive(dim=7, comp_list=None, points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False):
@@ -904,7 +920,13 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2
 
 	return direction, results
 
-def plotNDOptimizationCartesian(n=5, points=None, labels=None, seed=1234, verbose=False):
+def plotNDOptimization_cartesian(n=5, points=None, labels=None, seed=1234, verbose=False, drawPlot=True):
+	
+	'''
+	Plot entropy and fwhm for the first n dimensions of principal component space. Uses recursive optimization
+	in rectangular coordinates which performs a 1D minimization for each dimension. Return list of dimensions
+	and list of entropies.
+	'''
 	
 	# test up to dimension n
 	if n<2:
@@ -934,33 +956,30 @@ def plotNDOptimizationCartesian(n=5, points=None, labels=None, seed=1234, verbos
 		first_fwhm_list.append(obj["fwhm"][0])
 		second_fwhm_list.append(obj["fwhm"][1])
 	
-	delta_entropy_list = np.ediff1d(entropy_list)
-
-	indices = np.argsort(delta_entropy_list)
-	impact_dim_list = np.take(dim_list, indices+1)
-	print("Dimensions with highest impact: ", impact_dim_list)
-
-	fig = plt.figure()
-	ax_fwhm = fig.add_subplot(121)
-	ax_ent = fig.add_subplot(122)
+	if drawPlot:
+		fig = plt.figure()
+		ax_fwhm = fig.add_subplot(121)
+		ax_ent = fig.add_subplot(122)
 	
-	ax_fwhm.plot(dim_list, first_fwhm_list, marker='x', label="Peak #1")
-	ax_fwhm.plot(dim_list, second_fwhm_list, marker='x', label="Peak #2")
-	ax_fwhm.set_title("Energy Resolution")
-	ax_fwhm.set_xlabel("PCA Dimension")
-	ax_fwhm.set_ylabel("FWHM [eV]")
-	ax_fwhm.legend(loc='upper right')
+		ax_fwhm.plot(dim_list, first_fwhm_list, marker='x', label="Peak #1")
+		ax_fwhm.plot(dim_list, second_fwhm_list, marker='x', label="Peak #2")
+		ax_fwhm.set_title("Energy Resolution")
+		ax_fwhm.set_xlabel("PCA Dimension")
+		ax_fwhm.set_ylabel("FWHM [eV]")
+		ax_fwhm.legend(loc='upper right')
 
-	ax_ent.plot(dim_list, entropy_list, marker='x')
-	ax_ent.set_title("Minimum Entropy")
-	ax_ent.set_xlabel("PCA Dimension")
-	ax_ent.set_ylabel("Entropy")	
+		ax_ent.plot(dim_list, entropy_list, marker='x')
+		ax_ent.set_title("Minimum Entropy")
+		ax_ent.set_xlabel("PCA Dimension")
+		ax_ent.set_ylabel("Entropy")	
 
-	fig.suptitle("Seed: " + str(seed))
+		fig.suptitle("Seed: " + str(seed))
+	
+		plt.show()
 
-	plt.show()
+	return dim_list, entropy_list
 
-def plotNDOptimization(n=5, traces=None, seed=1234):
+def plotNDOptimization(n=5, traces=None, seed=1234, drawPlot=True):
 	if n<2:
 		raise ValueError("N must be 2 or larger")
 
@@ -985,30 +1004,108 @@ def plotNDOptimization(n=5, traces=None, seed=1234):
 		first_fwhm_list.append(fwhm[0])
 		second_fwhm_list.append(fwhm[1])
 	
-	print(dim_list)
-	print(entropy_list)
-	print(first_fwhm_list)
-	print(second_fwhm_list)
+	if drawPlot:
+		fig = plt.figure()
+		ax_fwhm = fig.add_subplot(121)
+		ax_ent = fig.add_subplot(122)
+	
+		ax_fwhm.plot(dim_list, first_fwhm_list, marker='x', label="Peak #1")
+		ax_fwhm.plot(dim_list, second_fwhm_list, marker='x', label="Peak #2")
+		ax_fwhm.set_title("Energy Resolution")
+		ax_fwhm.set_xlabel("PCA Dimension")
+		ax_fwhm.set_ylabel("FWHM [eV]")
+		ax_fwhm.legend(loc='upper right')
+	
+		ax_ent.plot(dim_list, entropy_list, marker='x')
+		ax_ent.set_title("Minimum Entropy")
+		ax_ent.set_xlabel("PCA Dimension")
+		ax_ent.set_ylabel("Entropy")	
+
+		fig.suptitle("Seed: " + str(seed))
+
+		plt.show()
+
+	return dim_list, entropy_list
+
+def plotNDOptimization_best(n=5, drawPlot=True):
+	if not os.path.isfile(db_path):
+		raise ValueError("Database file does not exist.")
+
+	db = pickle.load(open(db_path, "rb"))
+
+	keys = []
+	for i in range(n):
+		dim=i+1
+		key = "dim" + str(dim)
+		keys.append(key)
+	
+	dim_list = []
+	entropy_list = []
+	first_fwhm_list = []
+	second_fwhm_list = []
+
+	for key in keys:
+		if key not in db:
+			print("Database does not contain " + key + ". Skipping this key...")
+		else:
+			dim_list.append(db[key]["dimension"])
+			entropy_list.append(db[key]["entropy"])
+			first_fwhm_list.append(db[key]["fwhm"][0])
+			second_fwhm_list.append(db[key]["fwhm"][1])
+	
+	if drawPlot:
+		fig = plt.figure()
+		ax_fwhm = fig.add_subplot(121)
+		ax_ent = fig.add_subplot(122)
+	
+		ax_fwhm.plot(dim_list, first_fwhm_list, marker='x', label="Peak #1")
+		ax_fwhm.plot(dim_list, second_fwhm_list, marker='x', label="Peak #2")
+		ax_fwhm.set_title("Energy Resolution")
+		ax_fwhm.set_xlabel("PCA Dimension")
+		ax_fwhm.set_ylabel("FWHM [eV]")
+		ax_fwhm.legend(loc='upper right')
+	
+		ax_ent.plot(dim_list, entropy_list, marker='x')
+		ax_ent.set_title("Minimum Entropy")
+		ax_ent.set_xlabel("PCA Dimension")
+		ax_ent.set_ylabel("Entropy")	
+
+		fig.suptitle("Best Results")
+
+		plt.show()
+	
+	return dim_list, entropy_list
+
+def plotNDOptimization_compare(n=5):
+	dim_list_cart, entropy_list_cart = plotNDOptimization_cartesian(n=n, drawPlot=False)
+	dim_list_best, entropy_list_best = plotNDOptimization_best(n=n, drawPlot=False)
 
 	fig = plt.figure()
-	ax_fwhm = fig.add_subplot(121)
-	ax_ent = fig.add_subplot(122)
-	
-	ax_fwhm.plot(dim_list, first_fwhm_list, marker='x', label="Peak #1")
-	ax_fwhm.plot(dim_list, second_fwhm_list, marker='x', label="Peak #2")
-	ax_fwhm.set_title("Energy Resolution")
-	ax_fwhm.set_xlabel("PCA Dimension")
-	ax_fwhm.set_ylabel("FWHM [eV]")
-	ax_fwhm.legend(loc='upper right')
+	ax_ent = fig.add_subplot(111)
 
-	ax_ent.plot(dim_list, entropy_list, marker='x')
+	ax_ent.plot(dim_list_cart, entropy_list_cart, marker='x', label="Cartesian Results")
+	ax_ent.plot(dim_list_best, entropy_list_best, marker='x', label="Best Results")
 	ax_ent.set_title("Minimum Entropy")
 	ax_ent.set_xlabel("PCA Dimension")
-	ax_ent.set_ylabel("Entropy")	
+	ax_ent.set_ylabel("Entropy")
 
-	fig.suptitle("Seed: " + str(seed))
+	ax_ent.legend(loc='upper right')
 
 	plt.show()
+
+def getImpactfulComponents_cartesian(n=5, dim=10):
+	if n>dim:
+		raise ValueError("Number of components requested must be lower than dimension.")
+
+	dim_list, entropy_list = plotNDOptimization_cartesian(n=dim, drawPlot=False)
+
+	delta_entropy_list = np.ediff1d(entropy_list)
+	indices = np.argsort(delta_entropy_list)
+	impact_dim_list = np.take(dim_list, indices+1)
+	comp_list_long = np.insert(impact_dim_list, 0, [1,2])
+	comp_list = comp_list_long[:n]
+
+	return comp_list
 
 def entropyFromSpherical(coords, *params):
 
