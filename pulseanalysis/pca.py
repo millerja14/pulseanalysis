@@ -46,7 +46,8 @@ def plotNComponents(n, traces=None):
 	ax.axes.xaxis.set_visible(False)
 	ax.axes.yaxis.set_visible(False)
 	plt.savefig("./decomp/pulse.png")
-
+	plt.close()
+	
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
 	ax.plot(traceAvg)
@@ -54,7 +55,8 @@ def plotNComponents(n, traces=None):
 	ax.axes.xaxis.set_visible(False)
 	ax.axes.yaxis.set_visible(False)
 	plt.savefig("./decomp/PC0.png")
-
+	plt.close()
+	
 	print(S)
 	varfrac = 100*(S**2/np.sum(S**2))
 
@@ -66,7 +68,42 @@ def plotNComponents(n, traces=None):
 		ax.axes.yaxis.set_visible(False)
 		ax.set_title("PC{0}: {1:.2f}% of Variance".format(i+1, varfrac[i]))
 		plt.savefig("./decomp/PC{0}.png".format(i+1))
+		plt.close()
 
+def plotTrace(comp_list, weights, traces=None):
+	comp_list = np.array(comp_list)
+	weights = np.array(weights)
+	weights = weights/np.linalg.norm(weights)
+	
+	if comp_list.size != weights.size:
+		raise ValueError("Weights array must have same size as component list")
+	
+	if not isinstance(traces, np.ndarray):
+		print("No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+	
+	nPoints = traces.shape[0]
+	
+	traceAvg = np.mean(traces, axis=0)
+
+	B = traces - np.tile(traceAvg, (nPoints, 1))
+
+	U, S, VT = np.linalg.svd(B, full_matrices=False)
+
+	result = np.zeros(traceAvg.size)
+
+	for comp, weight in zip(comp_list, weights):
+		comp_trace = VT[comp-1,:]
+		result += comp_trace*weight
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.plot(result)
+	ax.axes.xaxis.set_visible(False)
+	ax.axes.yaxis.set_visible(False)
+	ax.set_title("Comps : " + str(comp_list))
+	plt.show()
+		
 def principalVariances(traces=None):
 	if not isinstance(traces, np.ndarray):
 		print("No traces given, getting default traces...")
@@ -834,7 +871,7 @@ def optimizeEntropyNSphere_bestComps(n=5, dim=10, seed=1234):
 	print("Comp list: ", comp_list)
 	opt, fwhm_list = optimizeEntropyNSphere(comp_list=comp_list, seed=seed, drawPlot=True)
 	
-	return opt, fwhm_list
+	return opt, fwhm_list, comp_list
 
 def optimizeEntropyNSphere_recursive(dim=7, comp_list=None, points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False):
 	
@@ -1106,6 +1143,12 @@ def getImpactfulComponents_cartesian(n=5, dim=10):
 	comp_list = comp_list_long[:n]
 
 	return comp_list
+
+def plotDeltaE(n=5, dim=10, seed=1234):
+	opt, fwhm_list, comp_list = optimizeEntropyNSphere_bestComps(n=n, dim=dim, seed=seed)
+	weights = nSphereToCartesian(opt.x)
+
+	plotTrace(comp_list, weights)
 
 def entropyFromSpherical(coords, *params):
 
