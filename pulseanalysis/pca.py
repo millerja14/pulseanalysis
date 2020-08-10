@@ -31,6 +31,8 @@ def plotNComponents(n, traces=None):
 		print("No traces given, getting default traces...")
 		traces = mkid.loadTraces()
 	
+	comp_path = "./decomp/outliers_removed/"
+
 	nPoints = traces.shape[0]
 
 	traceAvg = np.mean(traces, axis=0)
@@ -45,7 +47,7 @@ def plotNComponents(n, traces=None):
 	ax.set_title("Full Pulse")
 	ax.axes.xaxis.set_visible(False)
 	ax.axes.yaxis.set_visible(False)
-	plt.savefig("./decomp/pulse.png")
+	plt.savefig(comp_path + "pulse.png")
 	plt.close()
 	
 	fig = plt.figure()
@@ -54,7 +56,7 @@ def plotNComponents(n, traces=None):
 	ax.set_title("Average Pulse")
 	ax.axes.xaxis.set_visible(False)
 	ax.axes.yaxis.set_visible(False)
-	plt.savefig("./decomp/PC0.png")
+	plt.savefig(comp_path + "PC0.png")
 	plt.close()
 	
 	print(S)
@@ -67,7 +69,22 @@ def plotNComponents(n, traces=None):
 		ax.axes.xaxis.set_visible(False)
 		ax.axes.yaxis.set_visible(False)
 		ax.set_title("PC{0}: {1:.2f}% of Variance".format(i+1, varfrac[i]))
-		plt.savefig("./decomp/PC{0}.png".format(i+1))
+		plt.savefig(comp_path + "PC{0}.png".format(i+1))
+		plt.close()
+
+def saveAllTrace(traces=None):
+	if not isinstance(traces, np.ndarray):
+		print("No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+
+	for i, trace in enumerate(traces):
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.plot(trace)
+		ax.set_title("Trace Index: " + str(i))
+		ax.axes.xaxis.set_visible(False)
+		ax.axes.yaxis.set_visible(False)
+		plt.savefig("./traces/trace{}.png".format(i))
 		plt.close()
 
 def plotTrace(comp_list, weights, traces=None):
