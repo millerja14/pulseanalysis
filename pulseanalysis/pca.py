@@ -26,6 +26,9 @@ import pulseanalysis.data as mkid
 
 db_path = "./pca_data/optimization.pickle"
 
+e_high = 6490
+e_low = 5900
+
 def plotNComponents(n, traces=None):
 	if not isinstance(traces, np.ndarray):
 		print("No traces given, getting default traces...")
@@ -392,12 +395,42 @@ def projectScatter(direction, points=None, drawPlot=False):
 
 	return proj
 
+def distToEV_withLabels(data, labels):
+	
+	#scale data
+	peak_sep_ev = e_high - e_low		
+
+	data0 = data[labels == 0]
+	data1 = data[labels == 1]
+
+	pos0 = np.mean(data0)
+	pos1 = np.mean(data1)
+
+	deltapeak = np.abs(pos0-pos1)
+
+	scale = peak_sep_ev/deltapeak
+
+	data_scaled = np.array(data*scale)
+
+	#shift data
+	peak0 = e_low
+
+	data_scaled0 = data_scaled[labels == 0]
+
+	pos_scaled0 = np.mean(data_scaled0)
+	
+	shift = peak0 - pos_scaled0
+
+	data_scaled_shifted = data_scaled + shift
+
+	return data_scaled_shifted
+
 def entropyFromDist(data, labels=None, drawPlot=False):
 	
 	if labels is None:
 		data_scaled = data
 	else:
-		peak_sep_ev = 590		
+		peak_sep_ev = e_high - e_low		
 
 		data0 = data[labels == 0]
 		data1 = data[labels == 1]
@@ -1403,11 +1436,11 @@ def optimizePCAResolution(dim=3, steps=10, points=None, npeaks=None, bw_list=Non
 	
 	return fwhm_list, direction
 
-def scatterAnim(angle=180, start_dir=[0,1]):
+def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 		
 	start_dir = np.array(start_dir)
 
-	points = generateScatter(2)
+	points, labels = generateScatter_labeled(2)
 	direction_points = np.array([[0,0], 3*start_dir]).T	
 
 	fig = plt.figure()
@@ -1418,12 +1451,20 @@ def scatterAnim(angle=180, start_dir=[0,1]):
 	ax_points.set_ylim(-5, 4)
 
 	ax_hist = fig.add_subplot(122)
+	
+	if colors:
+		points0 = np.array(points[labels == 0])
+		points1 = np.array(points[labels == 1])
 
-	ax_points.scatter(points[:,0], points[:,1], marker='x', color='b')
+		ax_points.scatter(points0[:,0], points0[:,1], marker='x', color='b')
+		ax_points.scatter(points1[:,0], points1[:,1], marker='x', color='orange')	
+	else:
+		ax_points.scatter(points[:,0], points[:,1], marker='x', color='b')
+
 	draw1, = ax_points.plot(*direction_points, linewidth=3, color='g', label='')
 	ax_points.set(xlabel='PC1', ylabel='PC2', title='Photon Pulses in 2D Space')
 
-	ax_hist.hist([], bins=100, density=True)
+	ax_hist.hist([])
 	ax_hist.set(xlabel='Projection [arb.]', ylabel='Frequency', title='1D Projection')
 	ax_hist.set_xlim(-4,4)
 
@@ -1442,21 +1483,41 @@ def scatterAnim(angle=180, start_dir=[0,1]):
 		draw[0].set_label("Angle: {0:.2f} degrees".format(d))
 		ax_points.legend(loc='upper right')
 		
-
 		dist = projectScatter(direction_r, points)		
+		data_scaled = distToEV_withLabels(dist, labels)
+
+		nValues = np.size(data_scaled)
+	
+		minVal = np.amin(data_scaled)-1
+		maxVal = np.amax(data_scaled)+1
+	
+		binWidth = 50
+	
+		nBins = int((maxVal-minVal)//binWidth + 2)
+
+		bins_list = np.linspace(minVal, minVal+binWidth*nBins, nBins, endpoint=False)
+
 		ax_hist.clear()
-		ax_hist.hist(dist, bins=50, density=True)
-		ax_hist.set(xlabel='Projection [arb.]', ylabel='Frequency', title='1D Projection')
-		ax_hist.set_xlim(-4,4)		
+		
+		if colors:
+			data_scaled0 = np.array(data_scaled[labels == 0])
+			data_scaled1 = np.array(data_scaled[labels == 1])
+			ax_hist.hist([data_scaled0, data_scaled1], stacked=True, color=['b', 'orange'], bins=bins_list)
+		else:
+			ax_hist.hist(data_scaled, bins=bins_list)
+		
+		ax_hist.set(xlabel='Energy [eV]', ylabel='Frequency', title='1D Projection')
+		ax_hist.set_xlim(4000,8000)
+		ax_hist.set_ylim(0,800)		
 
 		return draw
 
 	dsteps = np.linspace(0, angle, 100)
-	anim = animation.FuncAnimation(fig, animate, frames=dsteps, interval=30)
+	anim = animation.FuncAnimation(fig, animate, frames=dsteps, interval=60)
 
 	
 	writer = animation.PillowWriter(fps=30)
-	anim.save('./proj_fastish.gif', writer=writer, dpi=100)
+	anim.save('./proj_fastish_energyspace.gif', writer=writer, dpi=100)
 
 	plt.show()
 
