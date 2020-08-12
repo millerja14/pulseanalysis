@@ -7,13 +7,13 @@ import numpy as np
 
 directory = "./data"
 
-def loadTraces(dir=directory):
+def loadTraces(direct=directory):
 
 	'''
 	Load pulse tracs from KID data given a data directory.
 	'''
 	
-	loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
+	loop = mc.Loop.from_pickle(direct + "/analysis/loop_combined.p")
 	ptraces = loop.pulses[0].p_trace
 	dtraces = loop.pulses[0].d_trace	
 	traces = ptraces
@@ -53,7 +53,29 @@ def loadTraces(dir=directory):
 
 	traces = np.delete(traces, toRemove, axis=0)	
 
+	percent = .75
+	num = int(len(traces) * percent)
+
+	traces = traces[:num]
+	#traces = traces[-num:]
+
+	print("Using {0} traces".format(str(len(traces))))
+
 	return traces
+
+def loadTraces_split(s=0.5, direct=directory):
+	if s > 1 or s < 0:
+		return ValueError("S must be between 0 and 1")
+
+	traces = loadTraces(direct=direct)
+	
+	num = len(traces)
+	split = int(num*s)
+
+	traces1 = traces[:split]
+	traces2 = traces[-split:]
+
+	return traces1, traces2
 
 def plotTrace(pulse=None):
 	if not hasattr(pulse, 'p_trace'):
