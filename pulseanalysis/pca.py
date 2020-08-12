@@ -760,7 +760,7 @@ def plotEntropy(dim, samples=100, showProjection=False):
 	print("Best direction (spherical):", direction)
 	print("Best direction (cartesian):", direction_c)
 
-def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False, verbose=True):
+def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False, verbose=True):
 	
 	start_coords = np.array(start_coords)	
 
@@ -779,7 +779,9 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, 
 	if (points is None) or (labels is None):
 		print("No points given")
 		print("Extracting traces from file...")
-		traces = mkid.loadTraces()
+		if traces is None:
+			traces = mkid.loadTraces()
+
 		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
 		
 		points, labels = generateScatter_labeled_nthComps(comp_list=comp_list, traces=traces)
@@ -882,11 +884,42 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], points=None, 
 
 	return opt, fwhm_list
 
-def optimizeEntropyNSphere_bestComps(n=5, dim=10, seed=1234):
+def optimizeEntropyNSphere_splitTraces(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
+	traces1, traces2 = mkid.loadTraces_split(s=s)
+
+	#print(traces1)
+	#print(traces2)
+
+	opt1, _, comp_list = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces1, drawPlot=False)
+	direction = nSphereToCartesian(*opt1.x)
+
+	print("Direction: ", direction)
+
+	points1, labels1 = generateScatter_labeled_nthComps(comp_list=comp_list, traces=traces1)
+	points2, labels2 = generateScatter_labeled_nthComps(comp_list=comp_list, traces=traces2)
+
+	ent1 = opt1.fun
+	ent2 = entropyFromSpherical(opt1.x, points2, labels2, 1, False)
+
+	print("Ent1: ", ent1)
+	print("Ent2: ", ent2)
+
+	data1 = projectScatter(direction, points1)
+	data2 = projectScatter(direction, points2)
+
+	energies1 = hist.distToEV(data1)
+	energies2 = hist.distToEV(data2)
+
+	fwhm_list1 = hist.getFWHM_separatePeaks(energies1, npeaks=npeaks, bw_list=bw_list, desc=("FIRST " + "Comps " + str(comp_list) + " Entropy " + str(ent1)), xlabel="Energy [eV]", drawPlot=drawPlot)
+	fwhm_list2 = hist.getFWHM_separatePeaks(energies2, npeaks=npeaks, bw_list=bw_list, desc=("SECOND " + "Comps " + str(comp_list) + " Entropy " + str(ent2)), xlabel="Energy [eV]", drawPlot=drawPlot)
+
+	return (ent1, ent2), (fwhm_list1, fwhm_list2)
+
+def optimizeEntropyNSphere_bestComps(n=5, traces=None, dim=10, npeaks=2, bw_list=[.15,.2], drawPlot=True, seed=1234):
 	comp_list = getImpactfulComponents_cartesian(n=n, dim=dim)
 
 	print("Comp list: ", comp_list)
-	opt, fwhm_list = optimizeEntropyNSphere(comp_list=comp_list, seed=seed, drawPlot=True)
+	opt, fwhm_list = optimizeEntropyNSphere(comp_list=comp_list, traces=traces, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=drawPlot)
 	
 	return opt, fwhm_list, comp_list
 
