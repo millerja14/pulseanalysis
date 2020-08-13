@@ -920,8 +920,31 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, 
 
 	return opt, fwhm_list
 
+def plotEnergyTimeTraces(n=3, dim=10, npeaks=2, bw_list=[.15,.2], seed=1234):
+	
+	traces = mkid.loadTraces()
+
+	opt, _, comp_list = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces, drawPlot=False)
+
+	direction = nSphereToCartesian(*opt.x)
+
+	points, labels = generateScatter_labeled_nthComps(comp_list=comp_list, traces=traces)
+
+	data = projectScatter(direction, points)
+
+	energies = distToEV_withLabels(data, labels)
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.plot(energies, marker='x', linestyle='')
+	ax.grid()
+	ax.set_title("Energies Over Time")
+	ax.set_ylabel("Energy [eV]")
+	ax.set_xlabel("Time")
+	plt.show()
+
 def optimizeEntropyNSphere_splitTraces(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
-	traces1, traces2 = mkid.loadTraces_split(s=s)
+	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
 
 	#print(traces1)
 	#print(traces2)
