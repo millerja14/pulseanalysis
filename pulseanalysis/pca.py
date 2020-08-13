@@ -410,6 +410,9 @@ def distToEV_withLabels(data, labels):
 
 	scale = peak_sep_ev/deltapeak
 
+	if pos0 > pos1:
+		scale = -scale
+
 	data_scaled = np.array(data*scale)
 
 	#shift data
@@ -940,8 +943,11 @@ def optimizeEntropyNSphere_splitTraces(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.1
 	data1 = projectScatter(direction, points1)
 	data2 = projectScatter(direction, points2)
 
-	energies1 = hist.distToEV(data1)
-	energies2 = hist.distToEV(data2)
+	energies1 = distToEV_withLabels(data1, labels1)
+	energies2 = distToEV_withLabels(data2, labels2)
+	
+	print("Size 1: ", len(energies1))
+	print("Size 2: ", len(energies2))
 
 	fwhm_list1 = hist.getFWHM_separatePeaks(energies1, npeaks=npeaks, bw_list=bw_list, desc=("FIRST " + "Comps " + str(comp_list) + " Entropy " + str(ent1)), xlabel="Energy [eV]", drawPlot=drawPlot)
 	fwhm_list2 = hist.getFWHM_separatePeaks(energies2, npeaks=npeaks, bw_list=bw_list, desc=("SECOND " + "Comps " + str(comp_list) + " Entropy " + str(ent2)), xlabel="Energy [eV]", drawPlot=drawPlot)
@@ -1456,8 +1462,8 @@ def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 		points0 = np.array(points[labels == 0])
 		points1 = np.array(points[labels == 1])
 
-		ax_points.scatter(points0[:,0], points0[:,1], marker='x', color='b')
-		ax_points.scatter(points1[:,0], points1[:,1], marker='x', color='orange')	
+		ax_points.scatter(points0[:,0], points0[:,1], marker='x')
+		ax_points.scatter(points1[:,0], points1[:,1], marker='x')	
 	else:
 		ax_points.scatter(points[:,0], points[:,1], marker='x', color='b')
 
@@ -1480,7 +1486,7 @@ def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 
 		direction_r_points = np.array([[0,0], 3*direction_r]).T
 		draw[0].set_data(*direction_r_points)
-		draw[0].set_label("Angle: {0:.2f} degrees".format(d))
+		draw[0].set_label("Angle: {0:d} degrees".format(int(d)))
 		ax_points.legend(loc='upper right')
 		
 		dist = projectScatter(direction_r, points)		
@@ -1491,7 +1497,7 @@ def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 		minVal = np.amin(data_scaled)-1
 		maxVal = np.amax(data_scaled)+1
 	
-		binWidth = 50
+		binWidth = 30
 	
 		nBins = int((maxVal-minVal)//binWidth + 2)
 
@@ -1502,7 +1508,7 @@ def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 		if colors:
 			data_scaled0 = np.array(data_scaled[labels == 0])
 			data_scaled1 = np.array(data_scaled[labels == 1])
-			ax_hist.hist([data_scaled0, data_scaled1], stacked=True, color=['b', 'orange'], bins=bins_list)
+			ax_hist.hist([data_scaled0, data_scaled1], stacked=True, bins=bins_list)
 		else:
 			ax_hist.hist(data_scaled, bins=bins_list)
 		
@@ -1512,14 +1518,14 @@ def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 
 		return draw
 
-	dsteps = np.linspace(0, angle, 100)
-	anim = animation.FuncAnimation(fig, animate, frames=dsteps, interval=60)
+	dsteps = np.linspace(0, angle, 300)
+	anim = animation.FuncAnimation(fig, animate, frames=dsteps, interval=100)
 
 	
 	writer = animation.PillowWriter(fps=30)
 	anim.save('./proj_fastish_energyspace.gif', writer=writer, dpi=100)
 
-	plt.show()
+	#plt.show()
 
 #fig1 = plt.figure()
 #ax1 = fig1.add_subplot(121)
