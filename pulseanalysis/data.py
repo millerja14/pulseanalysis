@@ -65,7 +65,7 @@ def loadTraces_split(s=0.5, direct=directory):
 	split = int(num*s)
 
 	traces1 = traces[:split]
-	traces2 = traces[-split:]
+	traces2 = traces[split:]
 
 	return traces1, traces2
 
