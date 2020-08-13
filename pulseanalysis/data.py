@@ -53,14 +53,6 @@ def loadTraces(direct=directory):
 
 	traces = np.delete(traces, toRemove, axis=0)	
 
-	percent = .75
-	num = int(len(traces) * percent)
-
-	traces = traces[:num]
-	#traces = traces[-num:]
-
-	print("Using {0} traces".format(str(len(traces))))
-
 	return traces
 
 def loadTraces_split(s=0.5, direct=directory):
