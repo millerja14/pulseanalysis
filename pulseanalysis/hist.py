@@ -307,7 +307,7 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 	if drawPlot:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
-		ax.hist(data, bins='auto', density=True)
+		ax.hist(data, bins=100, density=True)
 		for i, (sdata, dist, height) in enumerate(zip(data_split, dist_list, rel_peak_heights)):
 			x = np.linspace(np.amin(sdata), np.amax(sdata), samples)
 			if bw_list[i] is None:
