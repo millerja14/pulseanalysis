@@ -55,17 +55,26 @@ def loadTraces(direct=directory):
 
 	return traces
 
-def loadTraces_split(s=0.5, direct=directory):
+def loadTraces_split(s=0.5, seed=None, direct=directory):
 	if s > 1 or s < 0:
 		return ValueError("S must be between 0 and 1")
 
 	traces = loadTraces(direct=direct)
 	
 	num = len(traces)
+	indices = np.arange(num)
+	
+	if seed is not None:
+		np.random.seed(seed)
+		np.random.shuffle(indices)
+
 	split = int(num*s)
 
-	traces1 = traces[:split]
-	traces2 = traces[split:]
+	indices1 = indices[:split]
+	indices2 = indices[split:]
+
+	traces1 = np.take(traces, indices1, axis=0)
+	traces2 = np.take(traces, indices2, axis=0)
 
 	return traces1, traces2
 
