@@ -725,7 +725,7 @@ def allVectsND(dim, norm, steps=10):
 	
 	return vlist
 
-def plotEntropy(dim, samples=100, showProjection=False):
+def plotEntropy(dim, samples=1000, showProjection=False):
 
 	'''
 	Plot the entropy landscape in 2 or 3 dimensions
@@ -879,7 +879,7 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, 
 		plt.show()
 		
 	# calculate fwhm of peaks
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=("Comps " + str(comp_list) + " Entropy " + str(ent_min)), xlabel="Energy [eV]", drawPlot=drawPlot)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA Optimization Using Components " + str(comp_list)), xlabel="Energy [eV]", drawPlot=drawPlot)
 
 	# save resutls to file if using first n components (not custom comp list)
 	if not usingCustomComps:
@@ -1514,6 +1514,7 @@ def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 		
 		dist = projectScatter(direction_r, points)		
 		data_scaled = distToEV_withLabels(dist, labels)
+		ent = entropyFromDist(dist, labels=labels)
 
 		nValues = np.size(data_scaled)
 	
@@ -1535,9 +1536,10 @@ def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 		else:
 			ax_hist.hist(data_scaled, bins=bins_list)
 		
+		ax_hist.text(0.65, 0.95, "Entropy: {0:.2f}".format(ent), transform=plt.gca().transAxes)
 		ax_hist.set(xlabel='Energy [eV]', ylabel='Frequency', title='1D Projection')
 		ax_hist.set_xlim(4000,8000)
-		ax_hist.set_ylim(0,800)		
+		ax_hist.set_ylim(0,800)
 
 		return draw
 
