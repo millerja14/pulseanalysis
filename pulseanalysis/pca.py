@@ -944,44 +944,70 @@ def plotEnergyTimeTraces(n=3, dim=10, npeaks=2, bw_list=[.15,.2], seed=1234):
 	plt.show()
 
 def optimizeEntropyNSphere_splitTraces(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
-	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
+	
+	# get both sets of traces
+	traces1, traces2 = mkid.loadTraces_split(s=0.5, seed=seed)
 
-	#print(traces1)
-	#print(traces2)
+	# get optimizatiions for both sets of traces
+	opt1, _, comp_list1 = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces1, drawPlot=False, verbose=False)
+	opt2, _, comp_list2 = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces2, drawPlot=False, verbose=False)
+	
+	# get oprimized directions native to each set of traces	
+	direction1_native = nSphereToCartesian(*opt1.x)
+	direction2_native = nSphereToCartesian(*opt2.x)
 
-	opt1, _, comp_list = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces1, drawPlot=False)
-	direction = nSphereToCartesian(*opt1.x)
+	# decompose traces into their native component list
+	points1_native, labels1_native = generateScatter_labeled_nthComps(comp_list=comp_list1, traces=traces1)
+	points2_native, labels2_native = generateScatter_labeled_nthComps(comp_list=comp_list2, traces=traces2)
 
-	print("Direction: ", direction)
+	# decompose traces into the opposiite component lists
+	points1, labels1 = generateScatter_labeled_nthComps(comp_list=comp_list2, traces=traces1)
+	points2, labels2 = generateScatter_labeled_nthComps(comp_list=comp_list1, traces=traces2)
 
-	points1, labels1 = generateScatter_labeled_nthComps(comp_list=comp_list, traces=traces1)
-	points2, labels2 = generateScatter_labeled_nthComps(comp_list=comp_list, traces=traces2)
+	# get the entropy of each set projected into its own optimized direction
+	ent1_native = opt1.fun	
+	ent2_native = opt2.fun
 
-	ent1 = opt1.fun
+	# get the entropy of each set projected into the optimized direction of the other set
+	ent1 = entropyFromSpherical(opt2.x, points1, labels1, 1, False)
 	ent2 = entropyFromSpherical(opt1.x, points2, labels2, 1, False)
 
-	print("Ent1: ", ent1)
-	print("Ent2: ", ent2)
+	# 1d data in native direction
+	data1_native = projectScatter(direction1_native, points1_native)
+	data2_native = projectScatter(direction2_native, points2_native)
+	
+	# 1d data in direction of other data
+	data1 = projectScatter(direction2_native, points1)
+	data2 = projectScatter(direction1_native, points2)
 
-	data1 = projectScatter(direction, points1)
-	data2 = projectScatter(direction, points2)
-
+	# 1d data converted to energies
+	energies1_native = distToEV_withLabels(data1_native, labels1_native)
+	energies2_native = distToEV_withLabels(data2_native, labels2_native)
 	energies1 = distToEV_withLabels(data1, labels1)
 	energies2 = distToEV_withLabels(data2, labels2)
+
+	# get FWHM from energy data
+	fwhm_list1_native = hist.getFWHM_separatePeaks(energies1_native, npeaks=npeaks, bw_list=bw_list, desc=("Energy 1 Native " + "Comps " + str(comp_list1) + " Entropy " + str(ent1_native)), xlabel="Energy [eV]", drawPlot=drawPlot)
+	fwhm_list2_native = hist.getFWHM_separatePeaks(energies2_native, npeaks=npeaks, bw_list=bw_list, desc=("Energy 2 Native " + "Comps " + str(comp_list2) + " Entropy " + str(ent2_native)), xlabel="Energy [eV]", drawPlot=drawPlot)
+	fwhm_list1 = hist.getFWHM_separatePeaks(energies1, npeaks=npeaks, bw_list=bw_list, desc=("Energy 1 " + "Comps " + str(comp_list2) + " Entropy " + str(ent1)), xlabel="Energy [eV]", drawPlot=drawPlot)
+	fwhm_list2 = hist.getFWHM_separatePeaks(energies2, npeaks=npeaks, bw_list=bw_list, desc=("Energy 2 " + "Comps " + str(comp_list1) + " Entropy " + str(ent2)), xlabel="Energy [eV]", drawPlot=drawPlot)
+
+	print("Direction 1: ", direction1_native)
+	print("Direction 2: ", direction2_native)
+	print("Entropy 1: ", ent1_native)
+	print("Entropy 2: ", ent2_native)
+	print("Entropy 1 using Direction 2: ", ent1)
+	print("Entropy 2 using Direction 1: ", ent2)
+
+def plotCrossValidation(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
-	print("Size 1: ", len(energies1))
-	print("Size 2: ", len(energies2))
+	return NotImplemented
 
-	fwhm_list1 = hist.getFWHM_separatePeaks(energies1, npeaks=npeaks, bw_list=bw_list, desc=("FIRST " + "Comps " + str(comp_list) + " Entropy " + str(ent1)), xlabel="Energy [eV]", drawPlot=drawPlot)
-	fwhm_list2 = hist.getFWHM_separatePeaks(energies2, npeaks=npeaks, bw_list=bw_list, desc=("SECOND " + "Comps " + str(comp_list) + " Entropy " + str(ent2)), xlabel="Energy [eV]", drawPlot=drawPlot)
-
-	return (ent1, ent2), (fwhm_list1, fwhm_list2)
-
-def optimizeEntropyNSphere_bestComps(n=5, traces=None, dim=10, npeaks=2, bw_list=[.15,.2], drawPlot=True, seed=1234):
+def optimizeEntropyNSphere_bestComps(n=5, traces=None, dim=10, npeaks=2, bw_list=[.15,.2], drawPlot=True, verbose=True, seed=1234):
 	comp_list = getImpactfulComponents_cartesian(n=n, dim=dim)
 
 	print("Comp list: ", comp_list)
-	opt, fwhm_list = optimizeEntropyNSphere(comp_list=comp_list, traces=traces, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=drawPlot)
+	opt, fwhm_list = optimizeEntropyNSphere(comp_list=comp_list, traces=traces, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=drawPlot, verbose=verbose)
 	
 	return opt, fwhm_list, comp_list
 
