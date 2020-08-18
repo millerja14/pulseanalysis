@@ -999,9 +999,48 @@ def optimizeEntropyNSphere_splitTraces(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.1
 	print("Entropy 1 using Direction 2: ", ent1)
 	print("Entropy 2 using Direction 1: ", ent2)
 
-def plotCrossValidation(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
+	return ent1_native, ent2_native, ent1, ent2
+
+def plotCrossValidation(n=4, dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
-	return NotImplemented
+	ent1_native_list = []
+	ent2_native_list = []
+	ent1_list = []
+	ent2_list = []
+	dim_list = []
+
+	for i in range(2, n+1):
+		ent1_native, ent2_native, ent1, ent2 = optimizeEntropyNSphere_splitTraces(n=i, dim=dim, s=s, npeaks=2, bw_list=[.15,.2], seed=seed, drawPlot=False)
+		
+		dim_list.append(i)
+		ent1_native_list.append(ent1_native)
+		ent2_native_list.append(ent2_native)
+		ent1_list.append(ent1)
+		ent2_list.append(ent2)
+
+	ent1_native_array = np.array(ent1_native_list)
+	ent2_native_array = np.array(ent2_native_list)
+	ent1_array = np.array(ent1_list)
+	ent2_array = np.array(ent2_list)
+	dim_array = np.array(dim_list)
+
+	fig = plt.figure()
+	ax1 = fig.add_subplot(121)
+	ax1.plot(dim_array, ent1_native_array, label="Native")
+	ax1.plot(dim_array, ent1_array, label="Non-Native")
+	ax1.set_title("Set #1 Entropies")
+	ax1.set_xlabel("Dimension")
+	ax1.set_ylabel("Entropy")
+	ax1.legend(loc='upper right')
+	ax2 = fig.add_subplot(122)
+	ax2.plot(dim_array, ent2_native_array, label="Native")
+	ax2.plot(dim_array, ent2_array, label="Non-Native")
+	ax2.set_title("Set #2 Entropies")
+	ax2.set_xlabel("Dimension")
+	ax2.set_ylabel("Entropy")
+	ax2.legend(loc='upper right')
+	plt.show()
+
 
 def optimizeEntropyNSphere_bestComps(n=5, traces=None, dim=10, npeaks=2, bw_list=[.15,.2], drawPlot=True, verbose=True, seed=1234):
 	comp_list = getImpactfulComponents_cartesian(n=n, dim=dim)
