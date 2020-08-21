@@ -385,53 +385,6 @@ def plot3DScatter_labeled(traces=None, basis=None):
 
 	return points, labels
 
-def project2DScatter(points=None, direction=[8,5], drawPlot=False):
-	
-	'''
-	Given an nx2 array of points, project these points on to the
-	direction that is given as a vector of size 2. Returns array of size n
-	containing 1D data.
-	'''
-
-	if not isinstance(points, (list, np.ndarray)):
-		print("project2DScatter(): No points given, getting default points...")
-		points = generate2DScatter()
-
-	sym = np.array(direction)
-	unit_sym = sym/np.linalg.norm(sym)
-	proj = points @ unit_sym
-
-	if drawPlot:
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
-		ax.hist(proj, bins='auto')
-		
-		ax.set_title("2D PCA projected on to <{0:.2f},{1:.2f}>".format(direction[0], direction[1]))
-
-		plt.show()
-
-	return proj
-
-def project3DScatter(points=None, direction=[8,5,0], drawPlot=False):
-	if not isinstance(points, (list, np.ndarray)):
-		print("project3DScatter(): No points given, getting default points...")
-		points = generate2DScatter()
-
-	sym = np.array(direction)
-	unit_sym = sym/np.linalg.norm(sym)
-	proj = points @ unit_sym
-
-	if drawPlot:
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
-		ax.hist(proj, bins='auto')
-
-		ax.set_title("3D PCA projected on to <{0:.2f},{1:.2f}, {3:.2f}>".format(*direction))
-
-		plt.show()
-
-	return proj
-
 def projectScatter(direction, points=None, drawPlot=False):
 	if not isinstance(points, (list, np.ndarray)):
 		print("project3DScatter(): No points given, getting default points...")
