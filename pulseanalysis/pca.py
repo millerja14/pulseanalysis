@@ -30,26 +30,32 @@ e_high = 6490
 e_low = 5900
 
 def plotNComponents(n, label, traces=None):
-	if not isinstance(traces, np.ndarray):
-		print("No traces given, getting default traces...")
+	
+	'''
+	Save first n principal components as images to a directory.
+	'''
+
+	if traces is None:
+		print("plotNComponents(): No traces given, getting default traces...")
 		traces = mkid.loadTraces()
 	
 	if not isinstance(label, str):
 		raise ValueError("Label must be a string")
 	
+	# create directory based on label
 	comp_path = "./decomp/" + label + "/"
-
 	if not os.path.exists(comp_path):
 		os.makedirs(comp_path)
 
+	# subtract average from traces
 	nPoints = traces.shape[0]
-
 	traceAvg = np.mean(traces, axis=0)
-
 	B = traces - np.tile(traceAvg, (nPoints, 1))
 
-	U, S, VT = np.linalg.svd(B, full_matrices=False)
+	# get basis
+	_, S, VT = np.linalg.svd(B, full_matrices=False)
 
+	# create figure of example trace
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
 	ax.plot(traces[0])
@@ -59,6 +65,7 @@ def plotNComponents(n, label, traces=None):
 	plt.savefig(comp_path + "pulse.png")
 	plt.close()
 	
+	# create figure of average trace
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
 	ax.plot(traceAvg)
@@ -68,9 +75,10 @@ def plotNComponents(n, label, traces=None):
 	plt.savefig(comp_path + "PC0.png")
 	plt.close()
 	
-	print(S)
+	# compute variances
 	varfrac = 100*(S**2/np.sum(S**2))
 
+	# create figure for each principal component
 	for i in range(n):
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
@@ -82,10 +90,16 @@ def plotNComponents(n, label, traces=None):
 		plt.close()
 
 def saveAllTrace(traces=None):
-	if not isinstance(traces, np.ndarray):
-		print("No traces given, getting default traces...")
+	
+	'''
+	Save all traces as images to a directory.
+	'''
+
+	if traces is None:
+		print("saveAllTrace(): No traces given, getting default traces...")
 		traces = mkid.loadTraces()
 
+	# save traces to directory
 	for i, trace in enumerate(traces):
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
@@ -96,43 +110,50 @@ def saveAllTrace(traces=None):
 		plt.savefig("./traces/trace{}.png".format(i))
 		plt.close()
 
-def plotTrace(comp_list, weights, traces=None):
-	comp_list = np.array(comp_list)
-	weights = np.array(weights)
-	weights = weights/np.linalg.norm(weights)
+def plotTrace(comp_list, weight_list, basis=None):
 	
-	if comp_list.size != weights.size:
+	'''
+	Plot sum of traces given a list of components and weights.
+	'''
+
+	comp_list = np.array(comp_list)
+	weight_list = np.array(weight_list)
+	weight_list = weight_list/np.linalg.norm(weight_list)
+	
+	if comp_list.size != weight_list.size:
 		raise ValueError("Weights array must have same size as component list")
 	
-	if not isinstance(traces, np.ndarray):
-		print("No traces given, getting default traces...")
-		traces = mkid.loadTraces()
+	if basis is None:
+		print("plotTrace(): No basis given, getting default basis...")
+		basis = getPCABasis()
 	
-	nPoints = traces.shape[0]
+	VT = basis
 	
-	traceAvg = np.mean(traces, axis=0)
+	result = np.zeros_like(VT)
 
-	B = traces - np.tile(traceAvg, (nPoints, 1))
-
-	U, S, VT = np.linalg.svd(B, full_matrices=False)
-
-	result = np.zeros(traceAvg.size)
-
+	# sum components
 	for comp, weight in zip(comp_list, weights):
 		comp_trace = VT[comp-1,:]
 		result += comp_trace*weight
 
+	# plot the result
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
 	ax.plot(result)
 	ax.axes.xaxis.set_visible(False)
 	ax.axes.yaxis.set_visible(False)
 	ax.set_title("Comps : " + str(comp_list))
+	
 	plt.show()
 		
-def principalVariances(traces=None):
-	if not isinstance(traces, np.ndarray):
-		print("No traces given, getting default traces...")
+def plotPrincipalVariances(traces=None):
+	
+	'''
+	Plot the cumulative sum of variance due to adding each component.
+	'''
+
+	if traces is None:
+		print("plotPrincipalVariances(): No traces given, getting default traces...")
 		traces = mkid.loadTraces()
 
 	nPoints = traces.shape[0]
@@ -159,8 +180,12 @@ def principalVariances(traces=None):
 
 def getPCABasis(traces=None):
 
+	'''
+	Generate a list of basis vectors using SVD given a set of data vectors.
+	'''
+
 	if traces is None:
-		print("getPCABasis: No traces given, getting default traces...")
+		print("getPCABasis(): No traces given, getting default traces...")
 		traces = mkid.loadTraces()
 
 	nPoints = traces.shape[0]
