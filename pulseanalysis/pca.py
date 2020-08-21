@@ -29,12 +29,18 @@ db_path = "./pca_data/optimization.pickle"
 e_high = 6490
 e_low = 5900
 
-def plotNComponents(n, traces=None):
+def plotNComponents(n, label, traces=None):
 	if not isinstance(traces, np.ndarray):
 		print("No traces given, getting default traces...")
 		traces = mkid.loadTraces()
 	
-	comp_path = "./decomp/outliers_removed/"
+	if not isinstance(label, str):
+		raise ValueError("Label must be a string")
+	
+	comp_path = "./decomp/" + label + "/"
+
+	if not os.path.exists(comp_path):
+		os.makedirs(comp_path)
 
 	nPoints = traces.shape[0]
 
@@ -943,17 +949,21 @@ def plotEnergyTimeTraces(n=3, dim=10, npeaks=2, bw_list=[.15,.2], seed=1234):
 	ax.set_xlabel("Time")
 	plt.show()
 
-def optimizeEntropyCartesian_splitTraces(dim=4, s=0.5, points1=None, points2=None, labels1=None, labels2=None, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True, verbose=False):
+def optimizeEntropyCartesian_splitTraces(dim=4, s=0.5, points=None, labels=None, points1=None, points2=None, labels1=None, labels2=None, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True, verbose=False):
 
-	if (points1 is None) or (points2 is None) or (labels1 is None) or (labels2 is None):
+	if (points1 is None) or (points2 is None) or (labels1 is None) or (labels2 is None) or (points is None) or (labels is None):
 		traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
 		points1, labels1 = generateScatter_labeled(dim=dim, traces=traces1)
 		points2, labels2 = generateScatter_labeled(dim=dim, traces=traces2)
+		
+		traces = mkid.loadTraces()
+		points, labels = generateScatter_labeled(dim=dim, traces=traces)
 
 	if dim == 2:
-		ent1_native, ent2_native, ent1, ent2 = optimizeEntropyNSphere_splitTraces(n=2, dim=2, s=s, bw_list=bw_list, seed=seed, drawPlot=False)
+		ent1_native, ent2_native, ent1_combined, ent2_combined, ent1, ent2 = optimizeEntropyNSphere_splitTraces(n=2, dim=2, s=s, bw_list=bw_list, seed=seed, drawPlot=False)
 		opt1, _ = optimizeEntropyNSphere(dim=2, points=points1[:,:2], labels=labels1, seed=seed, drawPlot=False, verbose=verbose)
 		opt2, _ = optimizeEntropyNSphere(dim=2, points=points2[:,:2], labels=labels2, seed=seed, drawPlot=False, verbose=verbose)
+		opt, _ = optimizeEntropyNSphere(dim=2, points=points[:,:2], labels=labels, seed=seed, drawPlot=False, verbose=verbose)
 		
 		direction1_native = nSphereToCartesian(*opt1.x)
 		direction1_native = direction1_native/np.linalg.norm(direction1_native)
@@ -961,18 +971,24 @@ def optimizeEntropyCartesian_splitTraces(dim=4, s=0.5, points1=None, points2=Non
 		direction2_native = nSphereToCartesian(*opt2.x)
 		direction2_native = direction2_native/np.linalg.norm(direction2_native)
 
+		direction_combined = nSphereToCartesian(*opt.x)
+		direction_combined = direction_combined/np.linalg.norm(direction_combined)	
+
 	else:
-		results = optimizeEntropyCartesian_splitTraces(dim=dim-1, points1=points1, points2=points2, labels1=labels1, labels2=labels2, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=False)
+		results = optimizeEntropyCartesian_splitTraces(dim=dim-1, points=points, labels=labels, points1=points1, points2=points2, labels1=labels1, labels2=labels2, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=False)
 
 		start_coords1 = results[-1]["direction1_native"]
 		start_coords2 = results[-1]["direction2_native"]
+		start_coords = results[-1]["direction_combined"]
 
 		args1 = (points1[:,:dim], labels1, False)
 		args2 = (points2[:,:dim], labels2, False)
-		
+		args = (points[:,:dim], labels, False)	
+	
 		func1 = lambda x, *params : entropyFromCartesian([*start_coords1, *x], *params)
 		func2 = lambda x, *params : entropyFromCartesian([*start_coords2, *x], *params)
-		
+		func = lambda x, *params : entropyFromCartesian([*start_coords, *x], *params)		
+
 		bounds = [(-50, 50)]
 		popsize = 100
 		tol = 0.0001
@@ -983,13 +999,16 @@ def optimizeEntropyCartesian_splitTraces(dim=4, s=0.5, points1=None, points2=Non
 
 		opt1 = optimize.differential_evolution(func1, bounds, args=args1, popsize=popsize, tol=tol, init=init, seed=seed)
 		opt2 = optimize.differential_evolution(func2, bounds, args=args2, popsize=popsize, tol=tol, init=init, seed=seed)
-		
+		opt = optimize.differential_evolution(func, bounds, args=args, popsize=popsize, tol=tol, init=init, seed=seed)		
+
 		# get oprimized directions native to each set of traces	
 		direction1_native = np.array([*start_coords1, *opt1.x])
 		direction2_native = np.array([*start_coords2, *opt2.x])
+		direction_combined = np.array([*start_coords, *opt.x])
 
 		direction1_native = direction1_native/np.linalg.norm(direction1_native)
 		direction2_native = direction2_native/np.linalg.norm(direction2_native)
+		direction_combined = direction_combined/np.linalg.norm(direction_combined)
 
 		# get the entropy of each set projected into its own optimized direction
 		ent1_native = opt1.fun	
@@ -999,14 +1018,20 @@ def optimizeEntropyCartesian_splitTraces(dim=4, s=0.5, points1=None, points2=Non
 		ent1 = entropyFromCartesian(direction2_native, points1[:,:dim], labels1, False)
 		ent2 = entropyFromCartesian(direction1_native, points2[:,:dim], labels2, False)
 
-	result = {"dim": dim, "ent1_native": ent1_native, "ent2_native": ent2_native, "ent1": ent1, "ent2": ent2, "direction1_native": direction1_native, "direction2_native": direction2_native}
+		ent1_combined = entropyFromCartesian(direction_combined, points1[:,:dim], labels1, False)
+		ent2_combined = entropyFromCartesian(direction_combined, points2[:,:dim], labels2, False)
+
+	result = {"dim": dim, "ent1_native": ent1_native, "ent2_native": ent2_native, "ent1": ent1, "ent2": ent2, "ent1_combined": ent1_combined, "ent2_combined": ent2_combined, "direction1_native": direction1_native, "direction2_native": direction2_native, "direction_combined": direction_combined}
 
 	print("Direction 1: ", result["direction1_native"])
 	print("Direction 2: ", result["direction2_native"])
+	print("Combined Direction: ", result["direction_combined"])
 	print("Entropy 1: ", result["ent1_native"])
 	print("Entropy 2: ", result["ent2_native"])
 	print("Entropy 1 using Direction 2: ", result["ent1"])
 	print("Entropy 2 using Direction 1: ", result["ent2"])
+	print("Entropy 1 using Combined Opt: ", result["ent1_combined"])
+	print("Entropy 2 using Combined Opt: ", result["ent2_combined"])
 
 	# generate list of results
 	if dim == 2:
@@ -1019,23 +1044,28 @@ def optimizeEntropyCartesian_splitTraces(dim=4, s=0.5, points1=None, points2=Non
 def optimizeEntropyNSphere_splitTraces(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
 	# get both sets of traces
-	traces1, traces2 = mkid.loadTraces_split(s=0.5, seed=seed)
+	traces = mkid.loadTraces()
+	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
 
 	# get optimizatiions for both sets of traces
 	opt1, _, comp_list1 = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces1, drawPlot=False, verbose=False)
 	opt2, _, comp_list2 = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces2, drawPlot=False, verbose=False)
-	
+	opt, _, comp_list = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces, drawPlot=False, verbose=False)	
+
 	# get oprimized directions native to each set of traces	
 	direction1_native = nSphereToCartesian(*opt1.x)
 	direction2_native = nSphereToCartesian(*opt2.x)
+	direction_combined = nSphereToCartesian(*opt.x)
 
 	# decompose traces into their native component list
 	points1_native, labels1_native = generateScatter_labeled_nthComps(comp_list=comp_list1, traces=traces1)
 	points2_native, labels2_native = generateScatter_labeled_nthComps(comp_list=comp_list2, traces=traces2)
+	points, labels = generateScatter_labeled_nthComps(comp_list=comp_list, traces=traces)
 
 	# decompose traces into the opposiite component lists
 	points1, labels1 = generateScatter_labeled_nthComps(comp_list=comp_list2, traces=traces1)
 	points2, labels2 = generateScatter_labeled_nthComps(comp_list=comp_list1, traces=traces2)
+	points, labels = generateScatter_labeled_nthComps(comp_list=comp_list, traces=traces)
 
 	# get the entropy of each set projected into its own optimized direction
 	ent1_native = opt1.fun	
@@ -1044,6 +1074,9 @@ def optimizeEntropyNSphere_splitTraces(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.1
 	# get the entropy of each set projected into the optimized direction of the other set
 	ent1 = entropyFromSpherical(opt2.x, points1, labels1, 1, False)
 	ent2 = entropyFromSpherical(opt1.x, points2, labels2, 1, False)
+
+	ent1_combined = entropyFromSpherical(opt.x, points1, labels1, 1, False)
+	ent2_combined = entropyFromSpherical(opt.x, points2, labels2, 1, False)
 
 	# 1d data in native direction
 	data1_native = projectScatter(direction1_native, points1_native)
@@ -1072,16 +1105,25 @@ def optimizeEntropyNSphere_splitTraces(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.1
 	print("Entropy 1 using Direction 2: ", ent1)
 	print("Entropy 2 using Direction 1: ", ent2)
 
-	return ent1_native, ent2_native, ent1, ent2
+	return ent1_native, ent2_native, ent1_combined, ent2_combined, ent1, ent2
 
 def plotCrossValidationCartesian(dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
-	results = optimizeEntropyCartesian_splitTraces(dim=dim, s=s, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=False, verbose=False)
+	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
+	points1, labels1 = generateScatter_labeled(dim=dim, traces=traces1)
+	points2, labels2 = generateScatter_labeled(dim=dim, traces=traces2)
+
+	traces = mkid.loadTraces()
+	points, labels = generateScatter_labeled(dim=dim, traces=traces)
+
+	results = optimizeEntropyCartesian_splitTraces(dim=dim, s=s, points=points, labels=labels, points1=points1, points2=points2, labels1=labels1, labels2=labels2, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=False, verbose=False)
 
 	ent1_native_list = []
 	ent2_native_list = []
 	ent1_list = []
 	ent2_list = []
+	ent1_combined_list = []
+	ent2_combined_list = []
 	dim_list = []
 
 	for result in results:
@@ -1090,17 +1132,25 @@ def plotCrossValidationCartesian(dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed
 		ent2_native_list.append(result["ent2_native"])
 		ent1_list.append(result["ent1"])
 		ent2_list.append(result["ent2"])
+		ent1_combined_list.append(result["ent1_combined"])
+		ent2_combined_list.append(result["ent2_combined"])
 
 	ent1_native_array = np.array(ent1_native_list)
 	ent2_native_array = np.array(ent2_native_list)
 	ent1_array = np.array(ent1_list)
 	ent2_array = np.array(ent2_list)
 	dim_array = np.array(dim_list)
+	ent1_combined_array = np.array(ent1_combined_list)
+	ent2_combined_array = np.array(ent2_combined_list)
+
+	_, energy1_array = np.unique(labels1, return_counts=True)
+	_, energy2_array = np.unique(labels2, return_counts=True)
 
 	fig = plt.figure()
 	ax1 = fig.add_subplot(121)
 	ax1.plot(dim_array, ent1_native_array, label="Native")
 	ax1.plot(dim_array, ent1_array, label="Non-Native")
+	ax1.plot(dim_array, ent1_combined_array, label="Combined")
 	ax1.set_title("Set #1 Entropies")
 	ax1.set_xlabel("Dimension")
 	ax1.set_ylabel("Entropy")
@@ -1108,31 +1158,53 @@ def plotCrossValidationCartesian(dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed
 	ax2 = fig.add_subplot(122)
 	ax2.plot(dim_array, ent2_native_array, label="Native")
 	ax2.plot(dim_array, ent2_array, label="Non-Native")
+	ax2.plot(dim_array, ent2_combined_array, label="Combined")
 	ax2.set_title("Set #2 Entropies")
 	ax2.set_xlabel("Dimension")
 	ax2.set_ylabel("Entropy")
 	ax2.legend(loc='upper right')
+
+	#energy_labels = ["Low", "High"]
+	#ax3 = fig.add_subplot(223)
+	#ax3.pie(energy1_array, labels=energy_labels)
+	#ax4 = fig.add_subplot(224)	
+	#ax4.pie(energy2_array, labels=energy_labels)	
+
+	fig2 = plt.figure()
+	ax = fig2.add_subplot(111)
+	ax.plot(dim_array, (ent1_array-ent1_native_array)/ent1_native_array, label="Half #1")
+	ax.plot(dim_array, (ent2_array-ent2_native_array)/ent2_native_array, label="Half #2")
+	ax.set_title("Cross-Validation Entropies")
+	ax.set_xlabel("Dimension")
+	ax.set_ylabel("Cross-Validation Entropy [Relative]")
+	ax.legend(loc='upper right')
 	plt.show()
 
 def plotCrossValidation(n=4, dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
 	ent1_native_list = []
 	ent2_native_list = []
+	ent1_combined_list = []
+	ent2_combined_list = []
 	ent1_list = []
 	ent2_list = []
 	dim_list = []
 
 	for i in range(2, n+1):
-		ent1_native, ent2_native, ent1, ent2 = optimizeEntropyNSphere_splitTraces(n=i, dim=dim, s=s, npeaks=2, bw_list=[.15,.2], seed=seed, drawPlot=False)
+		ent1_native, ent2_native, ent1_combined, ent2_combined, ent1, ent2 = optimizeEntropyNSphere_splitTraces(n=i, dim=dim, s=s, npeaks=2, bw_list=[.15,.2], seed=seed, drawPlot=False)
 		
 		dim_list.append(i)
 		ent1_native_list.append(ent1_native)
 		ent2_native_list.append(ent2_native)
+		ent1_combined_list.append(ent1_combined)
+		ent2_combined_list.append(ent2_combined)
 		ent1_list.append(ent1)
 		ent2_list.append(ent2)
 
 	ent1_native_array = np.array(ent1_native_list)
 	ent2_native_array = np.array(ent2_native_list)
+	ent1_combined_array = np.array(ent1_combined_list)
+	ent2_combined_array = np.array(ent2_combined_list)
 	ent1_array = np.array(ent1_list)
 	ent2_array = np.array(ent2_list)
 	dim_array = np.array(dim_list)
@@ -1141,6 +1213,7 @@ def plotCrossValidation(n=4, dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=123
 	ax1 = fig.add_subplot(121)
 	ax1.plot(dim_array, ent1_native_array, label="Native")
 	ax1.plot(dim_array, ent1_array, label="Non-Native")
+	ax1.plot(dim_array, ent1_combined_array, label="Combined")
 	ax1.set_title("Set #1 Entropies")
 	ax1.set_xlabel("Dimension")
 	ax1.set_ylabel("Entropy")
@@ -1148,10 +1221,20 @@ def plotCrossValidation(n=4, dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=123
 	ax2 = fig.add_subplot(122)
 	ax2.plot(dim_array, ent2_native_array, label="Native")
 	ax2.plot(dim_array, ent2_array, label="Non-Native")
+	ax2.plot(dim_array, ent2_combined_array, label="Combined")
 	ax2.set_title("Set #2 Entropies")
 	ax2.set_xlabel("Dimension")
 	ax2.set_ylabel("Entropy")
 	ax2.legend(loc='upper right')
+
+	fig2 = plt.figure()
+	ax = fig2.add_subplot(111)
+	ax.plot(dim_array, (ent1_array-ent1_native_array)/ent1_native_array, label="Half #1")
+	ax.plot(dim_array, (ent2_array-ent2_native_array)/ent2_native_array, label="Half #2")
+	ax.set_title("Cross-Validation Entropies")
+	ax.set_xlabel("Dimension")
+	ax.set_ylabel("Cross-Validation Entropy [Relative]")
+	ax.legend(loc='upper right')
 	plt.show()
 
 
