@@ -515,41 +515,6 @@ def entropyFromDist(data, labels, drawPlot=False):
 
 	return ent
 
-def showSearchPoints3D(direction=[8,5,0]):
-	unit_direction = direction/np.linalg.norm(direction)
-
-	azim_n = 10
-	polar_n = 40
-	N = azim_n * polar_n
-
-	vects = np.zeros(shape=(N, 3))
-	
-	azim = np.linspace(0, 45, azim_n)
-	polar = np.linspace(0, 360, polar_n)	
-
-	x = np.random.randn(3)
-	x = x - x.dot(unit_direction) * unit_direction
-	ortho1 = x/np.linalg.norm(x)
-
-	for i, a in enumerate(azim):
-		for j, p in enumerate(polar):
-			n = i*polar_n + j
-			vect = rotate3D([a,p], ortho1, direction)
-			vects[n] = vect
-	
-	print(vects.shape)
-	print(vects)
-
-	fig = plt.figure()
-	ax = plt.axes(projection='3d')
-	
-	direction_points = np.array([[0,0,0], direction]).T
-	
-	ax.plot(*direction_points, color='green')
-	ax.scatter(*np.rollaxis(vects, 1), marker='x')
-	
-	plt.show()
-
 def allVectsND(dim, norm, steps=10):
 	
 	nvects = (2*steps)**(dim-1)
