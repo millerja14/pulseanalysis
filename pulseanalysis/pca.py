@@ -637,6 +637,10 @@ def plotEntropy(dim, samples=1000, showProjection=False):
 
 def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False, verbose=True):
 	
+	'''
+	Optimize projection direction in any dimension by minimizing entropy. Coordinates of result are in spherical. Details of each optimization are pickled to a file.
+	'''
+
 	start_coords = np.array(start_coords)	
 
 	if start_coords is not []:
@@ -652,9 +656,8 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, 
 	dim = len(comp_list)
 	
 	if (points is None) or (labels is None):
-		print("No points given")
-		print("Extracting traces from file...")
 		if traces is None:
+			print("optimizeEntropyNSphere(): No traces given, getting default traces...")
 			traces = mkid.loadTraces()
 
 		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
@@ -759,20 +762,26 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, 
 
 	return opt, fwhm_list
 
-def plotEnergyTimeTraces(n=3, dim=10, npeaks=2, bw_list=[.15,.2], seed=1234):
+def plotEnergyTimeTraces(n=3, dim=10, traces=None, npeaks=2, bw_list=[.15,.2], seed=1234):
 	
-	traces = mkid.loadTraces()
+	'''
+	Plot the energies of each trace in order to help detect drift.
+	'''
 
+	if traces is None:
+		print("plotEnergyTimeTraces(): No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+
+	# get optimized delta-E direction
 	opt, _, comp_list = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces, drawPlot=False)
-
 	direction = nSphereToCartesian(*opt.x)
 
+	# calculate energies using optimized direction
 	points, labels = generateScatter_labeled_nthComps(comp_list=comp_list, traces=traces)
-
 	data = projectScatter(direction, points)
-
 	energies = distToEV_withLabels(data, labels)
 
+	# plot time trace
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
 	ax.plot(energies, marker='x', linestyle='')
@@ -782,7 +791,11 @@ def plotEnergyTimeTraces(n=3, dim=10, npeaks=2, bw_list=[.15,.2], seed=1234):
 	ax.set_xlabel("Time")
 	plt.show()
 
-def optimizeEntropyCartesian_splitTraces(dim=4, s=0.5, points=None, labels=None, points1=None, points2=None, labels1=None, labels2=None, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True, verbose=False):
+def crossValidation_cartesian(dim=4, s=0.5, points=None, labels=None, points1=None, points2=None, labels1=None, labels2=None, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True, verbose=False):
+
+	'''
+	Perform cross-validation using cartesian optimizations (one dimension at a time).
+	'''
 
 	if (points1 is None) or (points2 is None) or (labels1 is None) or (labels2 is None) or (points is None) or (labels is None):
 		traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
@@ -808,7 +821,7 @@ def optimizeEntropyCartesian_splitTraces(dim=4, s=0.5, points=None, labels=None,
 		direction_combined = direction_combined/np.linalg.norm(direction_combined)	
 
 	else:
-		results = optimizeEntropyCartesian_splitTraces(dim=dim-1, points=points, labels=labels, points1=points1, points2=points2, labels1=labels1, labels2=labels2, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=False)
+		results = crossValidation_cartesian(dim=dim-1, points=points, labels=labels, points1=points1, points2=points2, labels1=labels1, labels2=labels2, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=False)
 
 		start_coords1 = results[-1]["direction1_native"]
 		start_coords2 = results[-1]["direction2_native"]
@@ -874,8 +887,12 @@ def optimizeEntropyCartesian_splitTraces(dim=4, s=0.5, points=None, labels=None,
 
 	return results
 
-def optimizeEntropyNSphere_splitTraces(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
+def crossValidation_nSphere(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
+	'''
+	Perform cross-validation using n-dimensional, spherical optimization.
+	'''
+
 	# get both sets of traces
 	traces = mkid.loadTraces()
 	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
@@ -940,7 +957,7 @@ def optimizeEntropyNSphere_splitTraces(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.1
 
 	return ent1_native, ent2_native, ent1_combined, ent2_combined, ent1, ent2
 
-def plotCrossValidationCartesian(dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
+def plotCrossValidation_cartesian(dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
 	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
 	points1, labels1 = generateScatter_labeled(dim=dim, traces=traces1)
@@ -949,7 +966,7 @@ def plotCrossValidationCartesian(dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed
 	traces = mkid.loadTraces()
 	points, labels = generateScatter_labeled(dim=dim, traces=traces)
 
-	results = optimizeEntropyCartesian_splitTraces(dim=dim, s=s, points=points, labels=labels, points1=points1, points2=points2, labels1=labels1, labels2=labels2, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=False, verbose=False)
+	results = crossValidation_cartesian(dim=dim, s=s, points=points, labels=labels, points1=points1, points2=points2, labels1=labels1, labels2=labels2, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=False, verbose=False)
 
 	ent1_native_list = []
 	ent2_native_list = []
@@ -1013,7 +1030,7 @@ def plotCrossValidationCartesian(dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed
 	ax.legend(loc='upper right')
 	plt.show()
 
-def plotCrossValidation(n=4, dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
+def plotCrossValidation_nSphere(n=4, dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
 	ent1_native_list = []
 	ent2_native_list = []
@@ -1024,7 +1041,7 @@ def plotCrossValidation(n=4, dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=123
 	dim_list = []
 
 	for i in range(2, n+1):
-		ent1_native, ent2_native, ent1_combined, ent2_combined, ent1, ent2 = optimizeEntropyNSphere_splitTraces(n=i, dim=dim, s=s, npeaks=2, bw_list=[.15,.2], seed=seed, drawPlot=False)
+		ent1_native, ent2_native, ent1_combined, ent2_combined, ent1, ent2 = crossValidation_nSphere(n=i, dim=dim, s=s, npeaks=2, bw_list=[.15,.2], seed=seed, drawPlot=False)
 		
 		dim_list.append(i)
 		ent1_native_list.append(ent1_native)
