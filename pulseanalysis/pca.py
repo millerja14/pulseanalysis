@@ -159,21 +159,22 @@ def principalVariances(traces=None):
 
 def getPCABasis(traces=None):
 
-	if not isinstance(traces, (np.ndarray)):
-		print("generate2DScatter(): No traces given, getting default traces...")
+	if traces is None:
+		print("getPCABasis: No traces given, getting default traces...")
 		traces = mkid.loadTraces()
 
 	nPoints = traces.shape[0]
 
+	# subtract average from traces
 	traceAvg = np.mean(traces, axis=0)
-
 	B = traces - np.tile(traceAvg, (nPoints,1))
 
+	# compute basis using svd
 	_, _, VT = np.linalg.svd(B/np.sqrt(nPoints), full_matrices=0)
 
 	return VT
 
-def generate2DScatter(traces=None, drawPlot=False):
+def plot2DScatter(traces=None, drawPlot=False):
 	
 	'''
 	Given a 2D collection of data where the first dimension contains
@@ -181,17 +182,21 @@ def generate2DScatter(traces=None, drawPlot=False):
 	vector in this space. Set drawPlot to False to supress plot.
 	'''
 
-	if not isinstance(traces, (np.ndarray)):
-		print("generate2DScatter(): No traces given, getting default traces...")
+	if traces is None:
+		print("plot2DScatter(): No traces given, getting default traces...")
 		traces = mkid.loadTraces()
 
+	if basis is None:
+		print("plot2DScatter(): No basis given, getting default basis...")
+		basis = getPCABasis(traces=traces)
+
+	# same methods as in plot3DScatter()
+
 	nPoints = traces.shape[0]
-
 	traceAvg = np.mean(traces, axis=0)
-
 	B = traces - np.tile(traceAvg, (nPoints,1))
 
-	U, S, VT = np.linalg.svd(B/np.sqrt(nPoints), full_matrices=0)
+	VT = basis
 
 	points = np.zeros(shape=(nPoints, 2))
 
@@ -214,26 +219,33 @@ def generate2DScatter(traces=None, drawPlot=False):
 
 	return points
 
-def generate3DScatter(traces=None, drawPlot=True):
-	if not isinstance(traces, (np.ndarray)):
-		print("generate3DScatter(): No traces given, getting default traces...")
+def plot3DScatter(traces=None, basis=None, drawPlot=True):
+	if traces is None:
+		print("plot3DScatter(): No traces given, getting default traces...")
 		traces = mkid.loadTraces()
 
+	if basis is None:
+		print("plot3DScatter(): No basis given, getting default basis...")
+		basis = getPCABasis(traces=traces)
+
+	# subtract average from traces
 	nPoints = traces.shape[0]
 	traceAvg = np.mean(traces, axis=0)
-
 	B = traces - np.tile(traceAvg, (nPoints,1))
 
-	U, S, VT = np.linalg.svd(B/np.sqrt(nPoints), full_matrices=0)
+	VT = basis
 
+	# empty array for points
 	points = np.zeros(shape=(nPoints, 3))
 
+	# create projections
 	for j in range(B.shape[0]):
 		x = VT[0,:] @ B[j,:].T
 		y = VT[1,:] @ B[j,:].T
 		z = VT[2,:] @ B[j,:].T
 		points[j,:] = [x,y,z]
 
+	# plot projections
 	if drawPlot:
 		fig = plt.figure()
 		ax = plt.axes(projection='3d')
@@ -250,9 +262,14 @@ def generate3DScatter(traces=None, drawPlot=True):
 	return points
 
 def generateLabels(traces):
+	
+	# get rough energies using non-pca method
 	energies = hist.benchmarkEnergies(traces)
+	
+	# get rough cutoff between high and low peak
 	cutoff = hist.getCutoffs(energies, 2)
 
+	# label points according to cutoff
 	labels = np.zeros(energies.size)
 	for i, e in enumerate(energies):
 		if e > cutoff:
@@ -260,10 +277,15 @@ def generateLabels(traces):
 
 	return labels
 
-def generateScatter(dim, traces=None):
-	if not isinstance(traces, np.ndarray):
-		print("No traces given, getting default traces...")
+def generateScatter(dim, traces=None, basis=None):
+	
+	if traces is None:
+		print("generateScatter(): No traces given, getting default traces...")
 		traces = mkid.loadTraces()
+
+	if basis is None:
+		print("generateScatter(): No basis given, getting default basis...")
+		basis = getPCABasis(traces=traces)
 
 	if not isinstance(dim, int):
 		raise ValueError("Dimension must be an integer.")
@@ -271,24 +293,31 @@ def generateScatter(dim, traces=None):
 	if not (dim > 0):
 		raise ValueError("Dimension must be greater than zero.")	
 
+	if basis.shape[0] < dim:
+		raise ValueError("Not enough vectors in basis. Must have at least " + str(dim) + ".")
+
+	# subtract average from traces
 	nPoints = traces.shape[0]
-	traceAvg = np.mean(traces, axis=0)
-
-	B = traces - np.tile(traceAvg, (nPoints, 1))
-
-	U, S, VT = np.linalg.svd(B/np.sqrt(nPoints), full_matrices=0)
-	
 	points = np.zeros(shape=(nPoints, dim))
+	traceAvg = np.mean(traces, axis=0)
+	B = traces - np.tile(traceAvg, (nPoints,1))
+	
+	VT = basis
 
+	# matrix multiply to get points
 	for j in range(B.shape[0]):
 		points[j,:] = VT[:dim,:] @ B[j,:].T
 
 	return points
 
-def generateScatter_labeled(dim, traces=None):
-	if not isinstance(traces, np.ndarray):
-		print("No traces given, getting default traces...")
+def generateScatter_labeled(dim, traces=None, basis=None):
+	if traces is None:
+		print("generateScatter_labeled(): No traces given, getting default traces...")
 		traces = mkid.loadTraces()
+
+	if basis is None:
+		print("generateScatter_labeled(): No basis given, getting default basis...")
+		basis = getPCABasis(traces=traces)
 	
 	if not isinstance(dim, int):
 		 raise ValueError("Dimension must be an integer.")
@@ -296,41 +325,52 @@ def generateScatter_labeled(dim, traces=None):
 	if not (dim > 0):
 		raise ValueError("Dimension must be greater than zero.")
 
-	points = generateScatter(dim=dim, traces=traces)
+	# create labels and points
+	points = generateScatter(dim=dim, traces=traces, basis=basis)
 	labels = generateLabels(traces)
 
 	return points, labels
 
-def generateScatter_labeled_nthComps(comp_list=[1,2,3,4,9,15], traces=None):
-	if not isinstance(traces, np.ndarray):
-		print("No traces given, getting default traces...")
-		traces = mkid.loadTraces()
+def generateScatter_labeled_nthComps(comp_list=[1,2,3,4,9,15], traces=None, basis=None):
 
-	labels = generateLabels(traces)
-	
+	# convert list to numpy array	
 	comp_list = np.array(comp_list)
 	dim = np.size(comp_list)
 
-	nPoints = traces.shape[0]
-	traceAvg = np.mean(traces, axis=0)
+	if traces is None:
+		print("generateScatter_labeled_nthComps(): No traces given, getting default traces...")
+		traces = mkid.loadTraces()
 
-	B = traces-np.tile(traceAvg, (nPoints, 1))
-	
-	U, S, VT = np.linalg.svd(B/np.sqrt(nPoints), full_matrices=0)
+	if basis is None:
+		print("generateScatter_labeled_nthComps(): No basis given, getting default basis...")
+		basis = getPCABasis(traces=traces)
 
-	points = np.zeros(shape=(nPoints, dim))
+	# make sure that our basis contains enough vectors to form scatter
+	if np.amax(comp_list) > basis.shape[0]:
+		raise ValueError("Not enough vectors in basis. Must have at least " + str(np.amax(comp_list)) + ".")
 
-	for j in range(B.shape[0]):
-		points[j,:] = np.take(VT, (comp_list-1), axis=0) @ B[j,:].T
+	# make sure traces and basis vectors have same length
+	if not traces.shape[1] == basis.shape[1]:
+		raise ValueError("Traces and basis vectors do not have same size.")
+
+	# create reduced basis set with requested components
+	basis_reduced = np.take(basis, (comp_list-1), axis=0)
+
+	# generate scatter using reduced basis set
+	points, labels = generateScatter_labeled(dim, traces=traces, basis=basis_reduced)
 
 	return points, labels
 
-def generateScatter3D_labeled(traces=None):
-	if not isinstance(traces, np.ndarray):
-		print("No traces given, getting default traces...")
+def plot3DScatter_labeled(traces=None, basis=None):
+	if traces is None:
+		print("plot3DScatter_labeled(): No traces given, getting default traces...")
 		traces = mkid.loadTraces()
 
-	points, labels = generateScatter_labeled(3, traces=traces)
+	if basis is None:
+		print("plot3DScatter_labeled(): No basis given, getting default basis...")
+		basis = getPCABasis(traces=traces)
+
+	points, labels = generateScatter_labeled(3, traces=traces, basis=basis)
 
 	fig = plt.figure()
 	ax = fig.add_subplot(111, projection='3d')
