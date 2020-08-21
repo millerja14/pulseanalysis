@@ -386,8 +386,8 @@ def plot3DScatter_labeled(traces=None, basis=None):
 	return points, labels
 
 def projectScatter(direction, points=None, drawPlot=False):
-	if not isinstance(points, (list, np.ndarray)):
-		print("project3DScatter(): No points given, getting default points...")
+	if points is None:
+		print("projectScatter(): No points given, getting default points...")
 		points = generate2DScatter()
 
 	if not points.shape[1] == direction.size:
@@ -412,6 +412,11 @@ def projectScatter(direction, points=None, drawPlot=False):
 
 def distToEV_withLabels(data, labels):
 	
+	'''
+	Scale 1-dimensional data into energy space. Data histogram must contain two peaks, and data
+	points belonging to each peak must be labeled as either 0 or 1.
+	'''
+
 	#scale data
 	peak_sep_ev = e_high - e_low		
 
@@ -443,38 +448,42 @@ def distToEV_withLabels(data, labels):
 
 	return data_scaled_shifted
 
-def entropyFromDist(data, labels=None, drawPlot=False):
-	
-	if labels is None:
-		data_scaled = data
-	else:
-		peak_sep_ev = e_high - e_low		
+def entropyFromDist(data, labels, drawPlot=False):
 
-		data0 = data[labels == 0]
-		data1 = data[labels == 1]
+	#if labels is None:
+	#	data_scaled = data
+	#else:
+	#	peak_sep_ev = e_high - e_low		
 
-		pos0 = np.mean(data0)
-		pos1 = np.mean(data1)
+	#	data0 = data[labels == 0]
+	#	data1 = data[labels == 1]
 
-		deltapeak = np.abs(pos0-pos1)
+	#	pos0 = np.mean(data0)
+	#	pos1 = np.mean(data1)
 
-		scale = peak_sep_ev/deltapeak
+	#	deltapeak = np.abs(pos0-pos1)
 
-		if drawPlot:
-			fig = plt.figure()
-			fig.suptitle("Scaled To Energy Scale")
+	#	scale = peak_sep_ev/deltapeak
 
-			ax1 = fig.add_subplot(121)
-			ax1.hist(data0, bins='auto', alpha=0.5)
-			ax1.hist(data1, bins='auto', alpha=0.5)	
+	#	if drawPlot:
+	#		fig = plt.figure()
+	#		fig.suptitle("Scaled To Energy Scale")
 
-			ax2 = fig.add_subplot(122)
-			ax2.hist(data*scale, bins='auto')
+	#		ax1 = fig.add_subplot(121)
+	#		ax1.hist(data0, bins='auto', alpha=0.5)
+	#		ax1.hist(data1, bins='auto', alpha=0.5)	
+
+	#		ax2 = fig.add_subplot(122)
+	#		ax2.hist(data*scale, bins='auto')
 			
-			plt.show()
+	
+	#		plt.show()
 
-		data_scaled = data*scale
-		
+	#	data_scaled = data*scale
+	
+
+	# scale data because entropy does not make sense without constant bin size
+	data_scaled = distToEV_withLabels(data, labels)
 
 	nValues = np.size(data_scaled)
 	
@@ -483,24 +492,21 @@ def entropyFromDist(data, labels=None, drawPlot=False):
 	
 	binWidth = 10
 	
+	# the number of bins we create based on the width of the distribution to achieve the
+	# desired bin width
 	nBins = int((maxVal-minVal)//binWidth + 2)
 
-
+	# generate list of bin edges
 	bins_list = np.linspace(minVal, minVal+binWidth*nBins, nBins, endpoint=False)
 
+	# create histogram and get probabilities
 	histogram = np.histogram(data_scaled, bins=bins_list)
 	probs = histogram[0]/nValues
 
+	# calculate entropy
 	ent = -(probs*np.ma.log(probs)).sum()
 
 	if drawPlot:
-		
-		#print("nValues", nValues)
-		#print("minVal", minVal)
-		#print("maxVal", maxVal)
-		#print("nBins", nBins)
-		#print("bins_list", bins_list)
-
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 		ax.hist(data_scaled, bins=bins_list)
