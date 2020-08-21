@@ -157,6 +157,22 @@ def principalVariances(traces=None):
 
 	plt.show()
 
+def getPCABasis(traces=None):
+
+	if not isinstance(traces, (np.ndarray)):
+		print("generate2DScatter(): No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+
+	nPoints = traces.shape[0]
+
+	traceAvg = np.mean(traces, axis=0)
+
+	B = traces - np.tile(traceAvg, (nPoints,1))
+
+	_, _, VT = np.linalg.svd(B/np.sqrt(nPoints), full_matrices=0)
+
+	return VT
+
 def generate2DScatter(traces=None, drawPlot=False):
 	
 	'''
