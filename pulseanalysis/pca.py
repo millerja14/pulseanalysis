@@ -199,7 +199,7 @@ def getPCABasis(traces=None):
 
 	return VT
 
-def plot2DScatter(traces=None, drawPlot=False):
+def plot2DScatter(traces=None, basis=None, drawPlot=False):
 	
 	'''
 	Given a 2D collection of data where the first dimension contains
@@ -806,7 +806,7 @@ def crossValidation_cartesian(dim=4, s=0.5, points=None, labels=None, points1=No
 		points, labels = generateScatter_labeled(dim=dim, traces=traces)
 
 	if dim == 2:
-		ent1_native, ent2_native, ent1_combined, ent2_combined, ent1, ent2 = optimizeEntropyNSphere_splitTraces(n=2, dim=2, s=s, bw_list=bw_list, seed=seed, drawPlot=False)
+		ent1_native, ent2_native, ent1_combined, ent2_combined, ent1, ent2 = crossValidation_nSphere(n=2, dim=2, s=s, bw_list=bw_list, seed=seed, drawPlot=False)
 		opt1, _ = optimizeEntropyNSphere(dim=2, points=points1[:,:2], labels=labels1, seed=seed, drawPlot=False, verbose=verbose)
 		opt2, _ = optimizeEntropyNSphere(dim=2, points=points2[:,:2], labels=labels2, seed=seed, drawPlot=False, verbose=verbose)
 		opt, _ = optimizeEntropyNSphere(dim=2, points=points[:,:2], labels=labels, seed=seed, drawPlot=False, verbose=verbose)
@@ -957,16 +957,29 @@ def crossValidation_nSphere(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed
 
 	return ent1_native, ent2_native, ent1_combined, ent2_combined, ent1, ent2
 
-def plotCrossValidation_cartesian(dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
+def plotCrossValidation_cartesian(dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
 	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
-	points1, labels1 = generateScatter_labeled(dim=dim, traces=traces1)
-	points2, labels2 = generateScatter_labeled(dim=dim, traces=traces2)
+	traces0 = mkid.loadTraces()
 
-	traces = mkid.loadTraces()
-	points, labels = generateScatter_labeled(dim=dim, traces=traces)
+	#results = crossValidation_cartesian(dim=dim, s=s, points=points, labels=labels, points1=points1, points2=points2, labels1=labels1, labels2=labels2, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=False, verbose=False)
 
-	results = crossValidation_cartesian(dim=dim, s=s, points=points, labels=labels, points1=points1, points2=points2, labels1=labels1, labels2=labels2, npeaks=npeaks, bw_list=bw_list, seed=seed, drawPlot=False, verbose=False)
+	basis1 = getPCABasis(traces=traces1)
+	basis2 = getPCABasis(traces=traces2)
+	basis0 = getPCABasis(traces=traces0)
+
+	points11, labels11 = generateScatter_labeled(dim=dim, traces=traces1, basis=basis1)
+	points22, labels22 = generateScatter_labeled(dim=dim, traces=traces2, basis=basis2)
+	points00, labels00 = generateScatter_labeled(dim=dim, traces=traces0, basis=basis0)	
+
+	points12, labels12 = generateScatter_labeled(dim=dim, traces=traces1, basis=basis2)
+	points21, labels21 = generateScatter_labeled(dim=dim, traces=traces2, basis=basis1)
+	points10, labels10 = generateScatter_labeled(dim=dim, traces=traces1, basis=basis0)
+	points20, labels20 = generateScatter_labeled(dim=dim, traces=traces2, basis=basis0)
+
+	direction1, results1 = optimizeEntropyCartesian_recursive(dim=dim, points=points11, labels=labels11)
+	direction2, results2 = optimizeEntropyCartesian_recursive(dim=dim, points=points22, labels=labels22)
+	direction0, results0 = optimizeEntropyCartesian_recursive(dim=dim, points=points00, labels=labels00)
 
 	ent1_native_list = []
 	ent2_native_list = []
@@ -976,14 +989,38 @@ def plotCrossValidation_cartesian(dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], see
 	ent2_combined_list = []
 	dim_list = []
 
-	for result in results:
-		dim_list.append(result["dim"])
-		ent1_native_list.append(result["ent1_native"])
-		ent2_native_list.append(result["ent2_native"])
-		ent1_list.append(result["ent1"])
-		ent2_list.append(result["ent2"])
-		ent1_combined_list.append(result["ent1_combined"])
-		ent2_combined_list.append(result["ent2_combined"])
+	for n in range(2, dim+1):
+		i = n-2
+
+		print("Direction2: ", direction2[:n])
+		print("Direction1: ", direction1[:n])
+		print("Direction0: ", direction0[:n])
+		#print("Points12: ", points12[:,:n])
+		#print("Points21: ", points21[:,:n])
+		#print("Points10: ", points10[:,:n])
+		#print("Points20: ", points20[:,:n])
+
+		ent11 = results1[i]["entropy"]
+		ent22 = results2[i]["entropy"]
+		ent12 = entropyFromCartesian(direction2[:n], points12[:,:n], labels12, False)
+		ent21 = entropyFromCartesian(direction1[:n], points21[:,:n], labels21, False)
+		ent10 = entropyFromCartesian(direction0[:n], points10[:,:n], labels10, False)
+		ent20 = entropyFromCartesian(direction0[:n], points20[:,:n], labels20, False)
+
+		print("1 Entropy: ", ent11)
+		print("2 Entropy: ", ent22)
+		print("1 Projected on 2: ", ent12)
+		print("2 Projected on 1: ", ent21)
+		print("1 projected on Total: ", ent10)
+		print("2 projected on Total: ", ent20)
+
+		dim_list.append(n)
+		ent1_native_list.append(ent11)
+		ent2_native_list.append(ent22)
+		ent1_list.append(ent12)
+		ent2_list.append(ent21)
+		ent1_combined_list.append(ent10)
+		ent2_combined_list.append(ent20)
 
 	ent1_native_array = np.array(ent1_native_list)
 	ent2_native_array = np.array(ent2_native_list)
@@ -993,8 +1030,8 @@ def plotCrossValidation_cartesian(dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], see
 	ent1_combined_array = np.array(ent1_combined_list)
 	ent2_combined_array = np.array(ent2_combined_list)
 
-	_, energy1_array = np.unique(labels1, return_counts=True)
-	_, energy2_array = np.unique(labels2, return_counts=True)
+	_, energy1_array = np.unique(labels11, return_counts=True)
+	_, energy2_array = np.unique(labels22, return_counts=True)
 
 	fig = plt.figure()
 	ax1 = fig.add_subplot(121)
