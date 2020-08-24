@@ -791,52 +791,6 @@ def plotEnergyTimeTraces(n=3, dim=10, traces=None, npeaks=2, bw_list=[.15,.2], s
 	ax.set_xlabel("Time")
 	plt.show()
 
-def crossValidation_nSphere(n=3, dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
-	
-	'''
-	Perform cross-validation using n-dimensional, spherical optimization.
-	'''
-
-	# get both sets of traces
-	traces0 = mkid.loadTraces()
-	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
-
-	basis1 = getPCABasis(traces=traces1)
-	basis2 = getPCABasis(traces=traces2)
-	basis0 = getPCABasis(traces=traces0)
-
-	points11, labels11 = generateScatter_labeled(dim=dim, traces=traces1, basis=basis1)
-	points22, labels22 = generateScatter_labeled(dim=dim, traces=traces2, basis=basis2)
-	points00, labels00 = generateScatter_labeled(dim=dim, traces=traces0, basis=basis0)
-
-	# get optimizatiions for both sets of traces
-	opt1, _, comp_list1 = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces1, drawPlot=False, verbose=False)
-	opt2, _, comp_list2 = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces2, drawPlot=False, verbose=False)
-	opt0, _, comp_list0 = optimizeEntropyNSphere_bestComps(n=n, dim=dim, npeaks=npeaks, bw_list=bw_list, seed=seed, traces=traces0, drawPlot=False, verbose=False)
-
-	points12, labels12 = generateScatter_labeled_nthComps(comp_list=comp_list2, traces=traces1, basis=basis2)
-	points21, labels21 = generateScatter_labeled_nthComps(comp_list=comp_list1, traces=traces2, basis=basis1)
-	points10, labels10 = generateScatter_labeled_nthComps(comp_list=comp_list0, traces=traces1, basis=basis0)
-	points20, labels20 = generateScatter_labeled_nthComps(comp_list=comp_list0, traces=traces2, basis=basis0)
-
-	# get oprimized directions native to each set of traces	
-	direction1 = opt1.x
-	direction2 = opt2.x
-	direction0 = opt0.x
-
-	# get the entropy of each set projected into its own optimized direction
-	ent11 = opt1.fun	
-	ent22 = opt2.fun
-
-	# get the entropy of each set projected into the optimized direction of the other set
-	ent12 = entropyFromSpherical(direction2, points12, labels12, 1, False)
-	ent21 = entropyFromSpherical(direction1, points21, labels21, 1, False)
-
-	ent10 = entropyFromSpherical(direction0, points10, labels10, 1, False)
-	ent20 = entropyFromSpherical(direction0, points20, labels20, 1, False)
-
-	return ent11, ent22, ent12, ent21, ent10, ent20
-
 def plotCrossValidation_cartesian(dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
 	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
@@ -949,9 +903,37 @@ def plotCrossValidation_cartesian(dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], see
 
 def plotCrossValidation_nSphere(n=4, dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 
+	# get both sets of traces
+	traces0 = mkid.loadTraces()
+	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)	
 	
+	# get PCA basis for each set of traces
+	basis1 = getPCABasis(traces=traces1)
+	basis2 = getPCABasis(traces=traces2)
+	basis0 = getPCABasis(traces=traces0)
+
+	# get points and labels for traces in their own basis
+	# project traces onto all basis vectors
+	points11_all, labels11_all = generateScatter_labeled(dim=dim, traces=traces1, basis=basis1)
+	points22_all, labels22_all = generateScatter_labeled(dim=dim, traces=traces2, basis=basis2)
+	points00_all, labels00_all = generateScatter_labeled(dim=dim, traces=traces0, basis=basis0)
+
+	# get list of most impactful components
+	comp_list1 = getImpactfulComponents_cartesian(n=n, dim=dim, points=points11_all, labels=labels11_all)
+	comp_list2 = getImpactfulComponents_cartesian(n=n, dim=dim, points=points22_all, labels=labels22_all)
+	comp_list0 = getImpactfulComponents_cartesian(n=n, dim=dim, points=points00_all, labels=labels00_all)
 	
+	# get points and labels for traces in each others bases
+	# project traces onto only select basis vectors
+	points11, labels11 = generateScatter_labeled_nthComps(comp_list=comp_list1, traces=traces1, basis=basis1)
+	points22, labels22 = generateScatter_labeled_nthComps(comp_list=comp_list2, traces=traces2, basis=basis2)
+	points00, labels00 = generateScatter_labeled_nthComps(comp_list=comp_list0, traces=traces0, basis=basis0)
+	points12, labels12 = generateScatter_labeled_nthComps(comp_list=comp_list2, traces=traces1, basis=basis2)
+	points21, labels21 = generateScatter_labeled_nthComps(comp_list=comp_list1, traces=traces2, basis=basis1)
+	points10, labels10 = generateScatter_labeled_nthComps(comp_list=comp_list0, traces=traces1, basis=basis0)
+	points20, labels20 = generateScatter_labeled_nthComps(comp_list=comp_list0, traces=traces2, basis=basis0)
 	
+	# initialize data lists
 	ent1_native_list = []
 	ent2_native_list = []
 	ent1_combined_list = []
@@ -960,17 +942,41 @@ def plotCrossValidation_nSphere(n=4, dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], 
 	ent2_list = []
 	dim_list = []
 
-	for i in range(2, n+1):
-		ent11, ent22, ent12, ent21, ent10, ent20 = crossValidation_nSphere(n=i, dim=dim, s=s, npeaks=2, bw_list=[.15,.2], seed=seed, drawPlot=False)
+	for j in range(2, n+1):
 		
-		dim_list.append(i)
+		# compute optimum direction using first j components from comp_list
+		opt1, _ = optimizeEntropyNSphere(comp_list=comp_list1[:j], npeaks=npeaks, bw_list=bw_list, seed=seed, points=points11[:,:j], labels=labels11, drawPlot=False, verbose=False)
+		opt2, _ = optimizeEntropyNSphere(comp_list=comp_list2[:j], npeaks=npeaks, bw_list=bw_list, seed=seed, points=points22[:,:j], labels=labels22, drawPlot=False, verbose=False)
+		opt0, _ = optimizeEntropyNSphere(comp_list=comp_list0[:j], npeaks=npeaks, bw_list=bw_list, seed=seed, points=points00[:,:j], labels=labels00, drawPlot=False, verbose=False)
+	
+		# get oprimized directions native to each set of traces	
+		direction1 = opt1.x
+		direction2 = opt2.x
+		direction0 = opt0.x
+
+		print("Direction 2: ", direction2)
+		print("Points 12 Shape: ", points12[:,:j].shape)
+	
+		# get the entropy of each set projected into its own optimized direction
+		ent11 = opt1.fun	
+		ent22 = opt2.fun
+
+		# get the entropy of each set projected into the optimized direction of the other set
+		ent12 = entropyFromSpherical(direction2, points12[:,:j], labels12, 1, False)
+		ent21 = entropyFromSpherical(direction1, points21[:,:j], labels21, 1, False)
+		ent10 = entropyFromSpherical(direction0, points10[:,:j], labels10, 1, False)
+		ent20 = entropyFromSpherical(direction0, points20[:,:j], labels20, 1, False)
+
+		# append data to lists
+		dim_list.append(j)
 		ent1_native_list.append(ent11)
 		ent2_native_list.append(ent22)
 		ent1_combined_list.append(ent10)
 		ent2_combined_list.append(ent20)
 		ent1_list.append(ent12)
 		ent2_list.append(ent21)
-
+	
+	# convert data to numpy arrays
 	ent1_native_array = np.array(ent1_native_list)
 	ent2_native_array = np.array(ent2_native_list)
 	ent1_combined_array = np.array(ent1_combined_list)
@@ -1262,11 +1268,11 @@ def plotNDOptimization_compare(n=5):
 
 	plt.show()
 
-def getImpactfulComponents_cartesian(n=5, dim=10):
+def getImpactfulComponents_cartesian(n=5, dim=10, points=None, labels=None):
 	if n>dim:
 		raise ValueError("Number of components requested must be lower than dimension.")
 
-	dim_list, entropy_list = plotNDOptimization_cartesian(n=dim, drawPlot=False)
+	dim_list, entropy_list = plotNDOptimization_cartesian(n=dim, points=points, labels=labels, drawPlot=False)
 
 	delta_entropy_list = np.ediff1d(entropy_list)
 	indices = np.argsort(delta_entropy_list)
