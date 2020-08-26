@@ -29,6 +29,8 @@ db_path = "./pca_data/optimization.pickle"
 e_high = 6490
 e_low = 5900
 
+ptrace_length = 8000
+
 def plotNComponents(n, label, traces=None):
 	
 	'''
@@ -129,10 +131,10 @@ def plotTrace(comp_list, weight_list, basis=None):
 	
 	VT = basis
 	
-	result = np.zeros_like(VT)
+	result = np.zeros_like(VT[0,:])
 
 	# sum components
-	for comp, weight in zip(comp_list, weights):
+	for comp, weight in zip(comp_list, weight_list):
 		comp_trace = VT[comp-1,:]
 		result += comp_trace*weight
 
@@ -142,7 +144,6 @@ def plotTrace(comp_list, weight_list, basis=None):
 	ax.plot(result)
 	ax.axes.xaxis.set_visible(False)
 	ax.axes.yaxis.set_visible(False)
-	ax.set_title("Comps : " + str(comp_list))
 	
 	plt.show()
 		
@@ -289,7 +290,7 @@ def plot3DScatter(traces=None, basis=None, drawPlot=True):
 def generateLabels(traces):
 	
 	# get rough energies using non-pca method
-	energies = hist.benchmarkEnergies(traces)
+	energies = hist.benchmarkEnergies(traces[:,:ptrace_length])
 	
 	# get rough cutoff between high and low peak
 	cutoff = hist.getCutoffs(energies, 2)
@@ -826,9 +827,9 @@ def plotCrossValidation_cartesian(dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], see
 	for n in range(2, dim+1):
 		i = n-2
 
-		print("Direction2: ", direction2[:n])
-		print("Direction1: ", direction1[:n])
-		print("Direction0: ", direction0[:n])
+		#print("Direction2: ", direction2[:n])
+		#print("Direction1: ", direction1[:n])
+		#print("Direction0: ", direction0[:n])
 		#print("Points12: ", points12[:,:n])
 		#print("Points21: ", points21[:,:n])
 		#print("Points10: ", points10[:,:n])
@@ -841,12 +842,12 @@ def plotCrossValidation_cartesian(dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], see
 		ent10 = entropyFromCartesian(direction0[:n], points10[:,:n], labels10, False)
 		ent20 = entropyFromCartesian(direction0[:n], points20[:,:n], labels20, False)
 
-		print("1 Entropy: ", ent11)
-		print("2 Entropy: ", ent22)
-		print("1 Projected on 2: ", ent12)
-		print("2 Projected on 1: ", ent21)
-		print("1 projected on Total: ", ent10)
-		print("2 projected on Total: ", ent20)
+		#print("1 Entropy: ", ent11)
+		#print("2 Entropy: ", ent22)
+		#print("1 Projected on 2: ", ent12)
+		#print("2 Projected on 1: ", ent21)
+		#print("1 projected on Total: ", ent10)
+		#print("2 projected on Total: ", ent20)
 
 		dim_list.append(n)
 		ent1_native_list.append(ent11)
@@ -1030,7 +1031,7 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2
 		print("Extracting traces from file...")
 		traces = mkid.loadTraces()
 		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
-		points, labels = generateScatter_labeled(dim=dim, traces=traces, verbose=False)
+		points, labels = generateScatter_labeled(dim=dim, traces=traces)
 	
 	# optimize in 2 dimensions as base case
 	if dim == 2:
@@ -1042,7 +1043,7 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2
 	else:
 		# get the first n-1 components recursively
 		start_coords, results = optimizeEntropyCartesian_recursive(dim=dim-1, points=points, labels=labels, seed=seed, verbose=verbose)
-		
+
 		# zip parameters
 		args = (points[:,:dim], labels, False)		
 		
@@ -1062,7 +1063,10 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2
 		# perform optimization		
 		if verbose:
 			print("Optimizing in " + str(dim) + "D...")
+	
+		print("Start Coords: ", start_coords)
 		opt = optimize.differential_evolution(func, bounds, args=args, popsize=popsize, tol=tol, init=init, seed=seed)
+		print("Opt: ", opt)
 
 		# build direction vector and normalize
 		direction = np.array([*start_coords, *opt.x])
@@ -1094,6 +1098,35 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2
 		results.append(result)
 
 	return direction, results
+
+def optimizeEntropyCartesian(n=None, dim=100, traces=None, points=None, labels=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=True):
+
+	comp_list = np.arange(dim)+1
+
+	if (points is None) or (labels is None):
+		if traces is None:
+			print("optimizeEntropyCartesian(): No traces given, getting default traces...")
+			traces = mkid.loadTraces()
+
+		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
+		
+		points, labels = generateScatter_labeled(dim=dim, traces=traces)
+		
+	if n is not None:
+		comp_list = getImpactfulComponents_cartesian(n=n, dim=dim, points=points, labels=labels, seed=seed)
+		points = np.take(points, comp_list-1, axis=1)
+		#print("Points shape: ", points.shape)
+		#print("Labels size: ", labels.shape)
+
+	direction, results = optimizeEntropyCartesian_recursive(dim=n, points=points, labels=labels, npeaks=npeaks, bw_list=bw_list, seed=seed, verbose=verbose)
+	
+	ent = results[-1]["entropy"]
+
+	data = projectScatter(direction, points[:,:dim])
+	energies = hist.distToEV(data)
+	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=("Entropy " + str(ent)), xlabel="Energy [eV]", drawPlot=drawPlot)
+
+	return direction, fwhm_list, comp_list
 
 def plotNDOptimization_cartesian(n=5, points=None, labels=None, seed=1234, verbose=False, drawPlot=True):
 	
@@ -1148,7 +1181,7 @@ def plotNDOptimization_cartesian(n=5, points=None, labels=None, seed=1234, verbo
 		ax_ent.set_xlabel("PCA Dimension")
 		ax_ent.set_ylabel("Entropy")	
 
-		fig.suptitle("Seed: " + str(seed))
+		fig.suptitle("PCA with Phase and Dissipation. Seed: " + str(seed))
 	
 		plt.show()
 
@@ -1268,11 +1301,11 @@ def plotNDOptimization_compare(n=5):
 
 	plt.show()
 
-def getImpactfulComponents_cartesian(n=5, dim=10, points=None, labels=None):
+def getImpactfulComponents_cartesian(n=5, dim=10, points=None, labels=None, seed=1234):
 	if n>dim:
 		raise ValueError("Number of components requested must be lower than dimension.")
 
-	dim_list, entropy_list = plotNDOptimization_cartesian(n=dim, points=points, labels=labels, drawPlot=False)
+	dim_list, entropy_list = plotNDOptimization_cartesian(n=dim, points=points, labels=labels, seed=seed, drawPlot=False)
 
 	delta_entropy_list = np.ediff1d(entropy_list)
 	indices = np.argsort(delta_entropy_list)
@@ -1283,10 +1316,15 @@ def getImpactfulComponents_cartesian(n=5, dim=10, points=None, labels=None):
 	return comp_list
 
 def plotDeltaE(n=5, dim=10, seed=1234):
-	opt, fwhm_list, comp_list = optimizeEntropyNSphere_bestComps(n=n, dim=dim, seed=seed)
+	opt, _, comp_list = optimizeEntropyNSphere_bestComps(n=n, dim=dim, seed=seed)
 	weights = nSphereToCartesian(opt.x)
 
 	plotTrace(comp_list, weights)
+
+def plotDeltaE_cartesian(n=None, dim=100, seed=1234):
+	weight_list, _, comp_list = optimizeEntropyCartesian(n=n, dim=dim, seed=seed)
+
+	plotTrace(comp_list, weight_list)
 
 def entropyFromSpherical(coords, *params):
 
