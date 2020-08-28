@@ -16,8 +16,8 @@ def loadTraces(direct=directory):
 	loop = mc.Loop.from_pickle(direct + "/analysis/loop_combined.p")
 	ptraces = loop.pulses[0].p_trace
 	dtraces = loop.pulses[0].d_trace	
-	traces = ptraces
-	#traces = np.concatenate((ptraces, dtraces), axis=1)
+	#traces = ptraces
+	traces = np.concatenate((ptraces, dtraces), axis=1)
 
 	# FOR SPECIFIC DATA SET
 	# REMOVE OUTLIERS
