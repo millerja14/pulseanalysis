@@ -1058,15 +1058,14 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2
 		
 		# generate starting population randomly
 		# make sure to include 0 in the starting population so that entropy can't go down
+		np.random.seed(seed)
 		init = np.append(np.random.uniform(low=-50, high=50, size=(popsize-1,1)), [[0]], axis=0)
 		
 		# perform optimization		
 		if verbose:
 			print("Optimizing in " + str(dim) + "D...")
 	
-		print("Start Coords: ", start_coords)
 		opt = optimize.differential_evolution(func, bounds, args=args, popsize=popsize, tol=tol, init=init, seed=seed)
-		print("Opt: ", opt)
 
 		# build direction vector and normalize
 		direction = np.array([*start_coords, *opt.x])
