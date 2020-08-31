@@ -112,7 +112,7 @@ def saveAllTrace(traces=None):
 		plt.savefig("./traces/trace{}.png".format(i))
 		plt.close()
 
-def plotTrace(comp_list, weight_list, basis=None):
+def plotTrace(comp_list, weight_list, basis=None, title=""):
 	
 	'''
 	Plot sum of traces given a list of components and weights.
@@ -142,8 +142,11 @@ def plotTrace(comp_list, weight_list, basis=None):
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
 	ax.plot(result)
-	ax.axes.xaxis.set_visible(False)
-	ax.axes.yaxis.set_visible(False)
+	ax.set_xlabel("Time")
+	ax.set_ylabel("Phase Shift")
+	ax.set_title(title)
+	#ax.axes.xaxis.set_visible(False)
+	#ax.axes.yaxis.set_visible(False)
 	
 	plt.show()
 		
@@ -792,7 +795,7 @@ def plotEnergyTimeTraces(n=3, dim=10, traces=None, npeaks=2, bw_list=[.15,.2], s
 	ax.set_xlabel("Time")
 	plt.show()
 
-def plotCrossValidation_cartesian(dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
+def plotCrossValidation_cartesian(n=None, dim=20, s=0.5, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=True):
 	
 	traces1, traces2 = mkid.loadTraces_split(s=s, seed=seed)
 	traces0 = mkid.loadTraces()
@@ -803,18 +806,24 @@ def plotCrossValidation_cartesian(dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], see
 	basis2 = getPCABasis(traces=traces2)
 	basis0 = getPCABasis(traces=traces0)
 
-	points11, labels11 = generateScatter_labeled(dim=dim, traces=traces1, basis=basis1)
-	points22, labels22 = generateScatter_labeled(dim=dim, traces=traces2, basis=basis2)
-	points00, labels00 = generateScatter_labeled(dim=dim, traces=traces0, basis=basis0)	
+	points11_all, labels11_all = generateScatter_labeled(dim=dim, traces=traces1, basis=basis1)
+	points22_all, labels22_all = generateScatter_labeled(dim=dim, traces=traces2, basis=basis2)
+	points00_all, labels00_all = generateScatter_labeled(dim=dim, traces=traces0, basis=basis0)	
 
-	points12, labels12 = generateScatter_labeled(dim=dim, traces=traces1, basis=basis2)
-	points21, labels21 = generateScatter_labeled(dim=dim, traces=traces2, basis=basis1)
-	points10, labels10 = generateScatter_labeled(dim=dim, traces=traces1, basis=basis0)
-	points20, labels20 = generateScatter_labeled(dim=dim, traces=traces2, basis=basis0)
+	direction1, _, comp_list1 = optimizeEntropyCartesian(n=n, dim=dim, points=points11_all, labels=labels11_all, drawPlot=False)
+	direction2, _, comp_list2 = optimizeEntropyCartesian(n=n, dim=dim, points=points22_all, labels=labels22_all, drawPlot=False)
+	direction0, _, comp_list0 = optimizeEntropyCartesian(n=n, dim=dim, points=points00_all, labels=labels00_all, drawPlot=False)
 
-	direction1, results1 = optimizeEntropyCartesian_recursive(dim=dim, points=points11, labels=labels11)
-	direction2, results2 = optimizeEntropyCartesian_recursive(dim=dim, points=points22, labels=labels22)
-	direction0, results0 = optimizeEntropyCartesian_recursive(dim=dim, points=points00, labels=labels00)
+	points11, labels11 = generateScatter_labeled_nthComps(comp_list=comp_list1, traces=traces1, basis=basis1)
+	points22, labels22 = generateScatter_labeled_nthComps(comp_list=comp_list2, traces=traces2, basis=basis2)
+	points12, labels12 = generateScatter_labeled_nthComps(comp_list=comp_list2, traces=traces1, basis=basis2)
+	points21, labels21 = generateScatter_labeled_nthComps(comp_list=comp_list1, traces=traces2, basis=basis1)
+	points10, labels10 = generateScatter_labeled_nthComps(comp_list=comp_list0, traces=traces1, basis=basis0)
+	points20, labels20 = generateScatter_labeled_nthComps(comp_list=comp_list0, traces=traces2, basis=basis0)
+
+	#direction1, results1 = optimizeEntropyCartesian_recursive(dim=dim, points=points11, labels=labels11)
+	#direction2, results2 = optimizeEntropyCartesian_recursive(dim=dim, points=points22, labels=labels22)
+	#direction0, results0 = optimizeEntropyCartesian_recursive(dim=dim, points=points00, labels=labels00)
 
 	ent1_native_list = []
 	ent2_native_list = []
@@ -824,8 +833,12 @@ def plotCrossValidation_cartesian(dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], see
 	ent2_combined_list = []
 	dim_list = []
 
-	for n in range(2, dim+1):
-		i = n-2
+	if n is None:
+		top=dim
+	else:
+		top=n
+
+	for i in range(2, top+1):
 
 		#print("Direction2: ", direction2[:n])
 		#print("Direction1: ", direction1[:n])
@@ -835,12 +848,12 @@ def plotCrossValidation_cartesian(dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], see
 		#print("Points10: ", points10[:,:n])
 		#print("Points20: ", points20[:,:n])
 
-		ent11 = results1[i]["entropy"]
-		ent22 = results2[i]["entropy"]
-		ent12 = entropyFromCartesian(direction2[:n], points12[:,:n], labels12, False)
-		ent21 = entropyFromCartesian(direction1[:n], points21[:,:n], labels21, False)
-		ent10 = entropyFromCartesian(direction0[:n], points10[:,:n], labels10, False)
-		ent20 = entropyFromCartesian(direction0[:n], points20[:,:n], labels20, False)
+		ent11 = entropyFromCartesian(direction1[:i], points11[:,:i], labels11, False)
+		ent22 = entropyFromCartesian(direction2[:i], points22[:,:i], labels22, False)
+		ent12 = entropyFromCartesian(direction2[:i], points12[:,:i], labels12, False)
+		ent21 = entropyFromCartesian(direction1[:i], points21[:,:i], labels21, False)
+		ent10 = entropyFromCartesian(direction0[:i], points10[:,:i], labels10, False)
+		ent20 = entropyFromCartesian(direction0[:i], points20[:,:i], labels20, False)
 
 		#print("1 Entropy: ", ent11)
 		#print("2 Entropy: ", ent22)
@@ -849,7 +862,7 @@ def plotCrossValidation_cartesian(dim=10, s=0.5, npeaks=2, bw_list=[.15,.2], see
 		#print("1 projected on Total: ", ent10)
 		#print("2 projected on Total: ", ent20)
 
-		dim_list.append(n)
+		dim_list.append(i)
 		ent1_native_list.append(ent11)
 		ent2_native_list.append(ent22)
 		ent1_list.append(ent12)
@@ -1117,7 +1130,9 @@ def optimizeEntropyCartesian(n=None, dim=100, traces=None, points=None, labels=N
 		#print("Points shape: ", points.shape)
 		#print("Labels size: ", labels.shape)
 
-	direction, results = optimizeEntropyCartesian_recursive(dim=n, points=points, labels=labels, npeaks=npeaks, bw_list=bw_list, seed=seed, verbose=verbose)
+	dim = comp_list.size
+
+	direction, results = optimizeEntropyCartesian_recursive(dim=dim, points=points, labels=labels, npeaks=npeaks, bw_list=bw_list, seed=seed, verbose=verbose)
 	
 	ent = results[-1]["entropy"]
 
@@ -1314,16 +1329,16 @@ def getImpactfulComponents_cartesian(n=5, dim=10, points=None, labels=None, seed
 
 	return comp_list
 
-def plotDeltaE(n=5, dim=10, seed=1234):
+def plotDeltaE(n=5, dim=10, title="", seed=1234):
 	opt, _, comp_list = optimizeEntropyNSphere_bestComps(n=n, dim=dim, seed=seed)
-	weights = nSphereToCartesian(opt.x)
+	weight_list = nSphereToCartesian(opt.x)
 
-	plotTrace(comp_list, weights)
+	plotTrace(comp_list, weight_list, title=title)
 
-def plotDeltaE_cartesian(n=None, dim=100, seed=1234):
+def plotDeltaE_cartesian(n=None, dim=100, title="", seed=1234):
 	weight_list, _, comp_list = optimizeEntropyCartesian(n=n, dim=dim, seed=seed)
 
-	plotTrace(comp_list, weight_list)
+	plotTrace(comp_list, weight_list, title=title)
 
 def entropyFromSpherical(coords, *params):
 
