@@ -46,7 +46,7 @@ def getDoublePeak_fe55(data, drawPlot=False):
 	return doublepeak
 
 
-def resolveDoublePeak(data=None, x0=5887.65, x1=5898.75, A=8.2, B=16.2, bw=None, samples=1000, drawPlot=False):
+def resolveDoublePeak(data=None, x0=5887.65, x1=5898.75, A=8.2, B=16.2, loops=2, bw=None, drawPlot=False):
 	
 	if data is None:
 		data = benchmarkEnergies()
@@ -64,52 +64,74 @@ def resolveDoublePeak(data=None, x0=5887.65, x1=5898.75, A=8.2, B=16.2, bw=None,
 
 	dx = x1-x0
 
-	start = np.amin(data)
-	stop = np.amax(data)
-	step = abs(dx)	
+	g_array_full = np.array([])
+	x_g_full = np.array([])
 
-	x_g = np.arange(start, stop, step)
-	g_array = kernel(x_g)
-	N = g_array.size - 1	
+	f_array_full = np.array([])
+	x_f_full = np.array([])
+
+	for i in range(loops):
+		start = np.amin(data)
+		stop = np.amax(data)
+		step = abs(dx)	
+		start = start + i*(step/loops)
+
+		x_g = np.arange(start, stop, step)
+		g_array = kernel(x_g)
+		N = g_array.size - 1	
 	
-	x_f_1 = np.arange(start-x1, stop-x1, 2*step)
-	x_f_2 = np.arange(start-x0, stop-x0, 2*step)
-	x_f = np.empty((x_f_1.size + x_f_2.size), dtype=x_f_1.dtype)
-	x_f[0::2] = x_f_1
-	x_f[1::2] = x_f_2
+		x_f_1 = np.arange(start-x1, stop-x1, 2*step)
+		x_f_2 = np.arange(start-x0, stop-x0, 2*step)
+		x_f = np.empty((x_f_1.size + x_f_2.size), dtype=x_f_1.dtype)
+		x_f[0::2] = x_f_1
+		x_f[1::2] = x_f_2
 
 
-	M = x_f.size
-	if M < N+2:
-		x_g = x_g[:M-1]
-		g_array = g_array[:M-1]
-		N = M-2
-	elif M > N+2:
-		x_f = x_f[:N+2]
+		M = x_f.size
+		if M < N+2:
+			x_g = x_g[:M-1]
+			g_array = g_array[:M-1]
+			N = M-2
+		elif M > N+2:
+			x_f = x_f[:N+2]
 	
 	
-	matrix = np.zeros((N+1, N+2))
-	for i in range(N+1):
-		matrix[i,i] = B
-		matrix[i,i+1] = A
+		matrix = np.zeros((N+1, N+2))
+		for i in range(N+1):
+			matrix[i,i] = B
+			matrix[i,i+1] = A
 
-	f_array = np.linalg.lstsq(matrix, g_array)[0]
+		f_array = np.linalg.lstsq(matrix, g_array)[0]
 
-	print("g_array size: ", g_array.size)
-	print("f_array size: ", f_array.size)
-	print("matrix shape: ", matrix.shape)
+		#print("g_array size: ", g_array.size)
+		#print("f_array size: ", f_array.size)
+		#print("matrix shape: ", matrix.shape)
+
+		g_array_full = np.append(g_array_full, g_array)
+		x_g_full = np.append(x_g_full, x_g)
+
+		f_array_full = np.append(f_array_full, f_array)
+		x_f_full = np.append(x_f_full, x_f)
+
+	f_order = np.argsort(x_f_full)
+	f_array_full = np.take(f_array_full, f_order)
+	x_f_full = np.take(x_f_full, f_order)
+
+	g_order = np.argsort(x_g_full)
+	g_array_full = np.take(g_array_full, g_order)
+	x_g_full = np.take(x_g_full, g_order)
 
 	if drawPlot==True:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 		#ax.hist(data, bins='auto', density=True)
-		ax.plot(x_f+x0, B*f_array, color='blue')
-		ax.plot(x_f+x1, A*f_array, color='blue')
-		ax.plot(x_g, g_array, color='green')
+		ax.plot(x_f_full+x0, A*f_array_full, color='blue')
+		ax.plot(x_f_full+x1, B*f_array_full, color='blue')
+		ax.plot(x_g_full, g_array_full, color='green')
 		plt.show()
 
-	g_fwhm = fwhmFromPeak(x_g, g_array)
-	f_fwhm = fwhmFromPeak(x_f, f_array)
+	g_fwhm = fwhmFromPeak(x_g_full, g_array_full)
+	f_fwhm = fwhmFromPeak(x_f_full, f_array_full)
 
 	print("g_fwhm: ", g_fwhm)
 	print("f_fwhm: ", f_fwhm)
@@ -322,7 +344,7 @@ def getCutoffs(data, npeaks, samples=1000):
 	cutoffs = np.sort(cutoffs)
 	
 	return cutoffs
-	
+
 def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc="", xlabel="",  drawPlot=True):
 	
 	x = np.linspace(np.amin(data), np.amax(data), samples)
