@@ -1142,6 +1142,28 @@ def optimizeEntropyCartesian(n=None, dim=100, traces=None, points=None, labels=N
 
 	return direction, fwhm_list, comp_list
 
+def getEnergiesCartesian(n=30, dim=80, traces=None, points=None, lables=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=False):
+	
+	if (points is None) or (labels is None):
+		if traces is None:
+			print("getEnergiesCartesian(): No traces given, getting default traces...")
+			traces = mkid.loadTraces()
+
+		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
+		points, labels = generateScatter_labeled(dim=dim, traces=traces)
+	
+	direction, fwhm_list, comp_list = optimizeEntropyCartesian(n=n, dim=dim, traces=traces, points=points, labels=labels, npeaks=npeaks, bw_list=bw_list, seed=seed, verbose=verbose, drawPlot=drawPlot)
+	
+	print("Points shape: ", points.shape)
+	points_reduced = np.take(points, comp_list-1, axis=1)
+	print("Points reduced shape: ", points_reduced.shape)
+
+	data = projectScatter(direction, points_reduced)
+	energies = hist.distToEV(data)
+
+	return energies
+	
+
 def plotNDOptimization_cartesian(n=5, points=None, labels=None, seed=1234, verbose=False, drawPlot=True):
 	
 	'''
