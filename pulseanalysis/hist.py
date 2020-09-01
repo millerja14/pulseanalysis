@@ -280,7 +280,7 @@ def getFWHM(data, npeaks=None, bw=None, samples=1000, desc="", xlabel="", drawPl
 
 	# compute fwhm
 	for i in range(npeaks):
-		widths[:,i] = np.vstack(peak_widths(dist, np.array([peak_indices[i]]), rel_height=halfmax_adj[0]))[:,0]
+		widths[:,i] = np.vstack(peak_widths(dist, np.array([peak_indices[i]]), rel_height=halfmax_adj[i]))[:,0]
 	
 	# compute variance
 	fwhm = slope*widths[0]
