@@ -46,25 +46,93 @@ def getDoublePeak_fe55(data, drawPlot=False):
 	return doublepeak
 
 
-def resolveDoublePeak(data=None, peak1=5888, peak2=5899, A=0.5, B=0.5, bw=None, samples=1000):
+def resolveDoublePeak(data=None, x0=5887.65, x1=5898.75, A=8.2, B=16.2, bw=None, samples=1000, drawPlot=False):
 	
 	if data is None:
 		data = getDoublePeak_fe55(benchmarkEnergies())
 
-	x = np.linspace(np.amin(data), np.amax(data), samples)
-	_, gx = getFWHM(data, bw=bw, samples=samples)
+	kernel = stats.gaussian_kde(data)
+	if bw is not None:
+		kernel.set_bandwidth(bw_method=bw)
+	bw = kernel.factor	
+
+	total = A+B
+	A = A/total
+	B = B/total
+
+	dx = x1-x0
+
+	start = np.amin(data)
+	stop = np.amax(data)
+	step = abs(dx)	
+
+	x_g = np.arange(start, stop, step)
+	g_array = kernel(x_g)
+	N = g_array.size - 1	
 	
-	if True:
+	x_f_1 = np.arange(start-x1, stop-x1, 2*step)
+	x_f_2 = np.arange(start-x0, stop-x0, 2*step)
+	x_f = np.empty((x_f_1.size + x_f_2.size), dtype=x_f_1.dtype)
+	x_f[0::2] = x_f_1
+	x_f[1::2] = x_f_2
+
+
+	M = x_f.size
+	if M < N+2:
+		x_g = x_g[:M-1]
+		g_array = g_array[:M-1]
+		N = M-2
+	elif M > N+2:
+		x_f = x_f[:N+2]
+	
+	
+	matrix = np.zeros((N+1, N+2))
+	for i in range(N+1):
+		matrix[i,i] = B
+		matrix[i,i+1] = A
+
+	f_array = np.linalg.lstsq(matrix, g_array)[0]
+
+	print("g_array size: ", g_array.size)
+	print("f_array size: ", f_array.size)
+	print("matrix shape: ", matrix.shape)
+
+	if drawPlot==True:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
-		ax.hist(data, bins='auto', density=True)
-		ax.plot(x, gx)
+		#ax.hist(data, bins='auto', density=True)
+		ax.plot(x_f+x0, B*f_array, color='blue')
+		ax.plot(x_f+x1, A*f_array, color='blue')
+		ax.plot(x_g, g_array, color='green')
 		plt.show()
 
-	## STUB
-	raise NotImplementedError
+	g_fwhm = fwhmFromPeak(x_g, g_array)
+	f_fwhm = fwhmFromPeak(x_f, f_array)
 
-	return False
+	print("g_fwhm: ", g_fwhm)
+	print("f_fwhm: ", f_fwhm)
+
+def fwhmFromPeak(xvalues, yvalues):
+	peak_indices, properties = find_peaks(yvalues, prominence=0, height=0)
+
+	# calculate half-max height as percentage relative to prominence for each peak
+	prominences = properties["prominences"]
+	heights = properties["peak_heights"]
+
+	# select proper number of largest peaks
+	idx = np.argsort(heights)[-1]
+	peak_idx = np.take(peak_indices, [idx])[0]
+	prominence = np.take(prominences, [idx])[0]
+	height = np.take(heights, [idx])[0]
+	
+	halfmax_adj = 1-(((0.5*height)-(height-prominence))/prominence)
+
+	width_data = peak_widths(yvalues, np.array([peak_indices[idx]]), rel_height=halfmax_adj)
+	width_indices = np.rint(np.concatenate((width_data[2], width_data[3]))).astype(int)
+	bounds = np.take(xvalues, width_indices)
+	fwhm = abs(bounds[1]-bounds[0])
+	
+	return fwhm
 
 def distToEV(values, peaks=e_peaks, drawPlot=False):
 
