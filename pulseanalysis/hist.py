@@ -49,7 +49,9 @@ def getDoublePeak_fe55(data, drawPlot=False):
 def resolveDoublePeak(data=None, x0=5887.65, x1=5898.75, A=8.2, B=16.2, bw=None, samples=1000, drawPlot=False):
 	
 	if data is None:
-		data = getDoublePeak_fe55(benchmarkEnergies())
+		data = benchmarkEnergies()
+
+	data = getDoublePeak_fe55(data)
 
 	kernel = stats.gaussian_kde(data)
 	if bw is not None:
