@@ -290,22 +290,6 @@ def plot3DScatter(traces=None, basis=None, drawPlot=True):
 
 	return points
 
-def generateLabels(traces):
-	
-	# get rough energies using non-pca method
-	energies = hist.benchmarkEnergies(traces[:,:ptrace_length])
-	
-	# get rough cutoff between high and low peak
-	cutoff = hist.getCutoffs(energies, 2)
-
-	# label points according to cutoff
-	labels = np.zeros(energies.size)
-	for i, e in enumerate(energies):
-		if e > cutoff:
-			labels[i] = 1
-
-	return labels
-
 def generateScatter(dim, traces=None, basis=None):
 	
 	if traces is None:
@@ -339,28 +323,7 @@ def generateScatter(dim, traces=None, basis=None):
 
 	return points
 
-def generateScatter_labeled(dim, traces=None, basis=None):
-	if traces is None:
-		print("generateScatter_labeled(): No traces given, getting default traces...")
-		traces = mkid.loadTraces()
-
-	if basis is None:
-		print("generateScatter_labeled(): No basis given, getting default basis...")
-		basis = getPCABasis(traces=traces)
-	
-	if not isinstance(dim, int):
-		 raise ValueError("Dimension must be an integer.")
-	
-	if not (dim > 0):
-		raise ValueError("Dimension must be greater than zero.")
-
-	# create labels and points
-	points = generateScatter(dim=dim, traces=traces, basis=basis)
-	labels = generateLabels(traces)
-
-	return points, labels
-
-def generateScatter_labeled_nthComps(comp_list=[1,2,3,4,9,15], traces=None, basis=None):
+def generateScatter_nthComps(comp_list=[1,2,3,4,9,15], traces=None, basis=None):
 
 	# convert list to numpy array	
 	comp_list = np.array(comp_list)
@@ -390,26 +353,31 @@ def generateScatter_labeled_nthComps(comp_list=[1,2,3,4,9,15], traces=None, basi
 
 	return points, labels
 
-def plot3DScatter_labeled(traces=None, basis=None):
-	if traces is None:
+def plot2DScatter_labeled(traces=None, labels=None, basis=None, peak_list=None):
+	if (traces is None) or (labels is None):
 		print("plot3DScatter_labeled(): No traces given, getting default traces...")
-		traces = mkid.loadTraces()
+		traces, labels = mkid.loadTraces_labeled()
 
 	if basis is None:
 		print("plot3DScatter_labeled(): No basis given, getting default basis...")
 		basis = getPCABasis(traces=traces)
 
-	points, labels = generateScatter_labeled(3, traces=traces, basis=basis)
+	if peak_list is None:
+		peak_list = np.arange(7)
+	else:
+		peak_list = np.array(peak_list)
+
+	points = generateScatter(2, traces=traces, basis=basis)
 
 	fig = plt.figure()
-	ax = fig.add_subplot(111, projection='3d')
+	ax = fig.add_subplot(111)
 
-	for i, p in enumerate(points):
-		if labels[i] == 0:
-			ax.scatter(*p, marker='x', color='r', s=50)
-		else:
-			ax.scatter(*p, marker='o', color='b', s=50)
-
+	for i in peak_list:
+		curr_points = points[labels==i]
+		ax.scatter(*curr_points.T, marker='x', label="Peak #{}".format(i+1))
+	
+	ax.legend(loc='upper right')
+	
 	plt.show()
 
 	return points, labels
