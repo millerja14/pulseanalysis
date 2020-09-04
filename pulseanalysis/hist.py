@@ -5,14 +5,25 @@ matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 from scipy.signal import find_peaks, peak_widths
+from scipy import interpolate
 
 import pulseanalysis.data as mkid
 
-# expected energy peaks in eV
-e_high = 6490
-e_low = 5900
+A=8.2
+B=16.2
+
+loc1 = 5887.65
+loc2 = 5898.75
+loc3 = 6490.45
+loc0 = (A*loc1+B*loc2)/(A+B)
+
+e_low = loc0
+e_high = loc3
 e_cutoff = 6250
 e_peaks = np.array([e_low, e_high])
+
+
+
 
 #loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
 #traces = loop.pulses[0].p_trace
@@ -46,7 +57,7 @@ def getDoublePeak_fe55(data, drawPlot=False):
 	return doublepeak
 
 
-def resolveDoublePeak(data=None, x0=5887.65, x1=5898.75, A=8.2, B=16.2, loops=2, bw=None, drawPlot=False):
+def resolveDoublePeak(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=2, bw=None, drawPlot=False):
 	
 	if data is None:
 		data = getDoublePeak_fe55(benchmarkEnergies())
@@ -177,8 +188,28 @@ def fwhmFromPeak(xvalues, yvalues):
 	return fwhm, width_data[1], bounds[0], bounds[1]
 
 def distToEV(values, peaks=e_peaks, drawPlot=False):
+	cutoff = getCutoffs(values, 2)
+	values0 = values[values<cutoff]
+	values1 = values[values>=cutoff]
 
-	value_space  = np.linspace(np.amin(values), np.amax(values), 1000)
+	median0 = np.median(values0)
+	median1 = np.median(values1)
+
+	e_scale = np.abs((e_peaks[1] - e_peaks[0])/(median0-median1))
+
+	if values0.size > values1.size:
+		e_first = e_peaks[0] - (median0 * e_scale)
+	else:
+		e_scale = -e_scale
+		e_first = e_peaks[1] - (median0 * e_scale)
+	
+	energies = values*e_scale + e_first
+	
+	return energies
+
+def distToEV_kde(values, peaks=e_peaks, drawPlot=False):
+
+	value_space  = np.linspace(np.amin(values), np.amax(values), 10000)
 	kernel = stats.gaussian_kde(values)
 	values_dist = kernel(value_space)
 	peak_indices, properties = find_peaks(values_dist, prominence=0, height=0)
@@ -218,6 +249,38 @@ def distToEV(values, peaks=e_peaks, drawPlot=False):
 		ax.set_ylabel("Counts")
 		ax.set_title("Distribution of Energies")
 		plt.show()
+
+	return energies
+
+def distToEV_split(values, peaks=e_peaks, bw_list=[.15,.2], samples=10000):
+	
+	cutoff = getCutoffs(values, 2)
+	values0 = values[values<cutoff]
+	values1 = values[values>=cutoff]
+
+	xvalues0, yvalues0 = resolveSinglePeak(values0, bw=bw_list[0], samples=samples)
+	xvalues1, yvalues1 = resolveSinglePeak(values1, bw=bw_list[1], samples=samples)
+
+	idx0 = np.argsort(yvalues0)[-1]
+	idx1 = np.argsort(yvalues1)[-1]
+
+	max0 = np.take(xvalues0, idx0)
+	max1 = np.take(xvalues1, idx1)
+
+	height0 = np.take(yvalues0, idx0)
+	height1 = np.take(yvalues1, idx1)
+
+	# conversions from value space to energy space
+	e_scale = np.abs((e_peaks[1] - e_peaks[0])/(max1 - max0))
+	
+	
+	if height0 > height1:
+		e_first = e_peaks[0] - (max1 * e_scale)
+	else:
+		e_scale = -e_scale
+		e_first = e_peaks[1] - (max1 * e_scale)
+
+	energies = values*e_scale + e_first
 
 	return energies
 
@@ -363,7 +426,7 @@ def getCutoffs(data, npeaks, samples=1000):
 	
 	return cutoffs
 
-def getFWHM_fe55(data=None, x0=5887.65, x1=5898.75, A=8.2, B=16.2, loops=20, bw_list=[.15,.2], samples=1000, drawPlot=True):
+def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.2], samples=10000, drawPlot=True):
 
 	total = A+B
 	A = A/total
@@ -392,13 +455,32 @@ def getFWHM_fe55(data=None, x0=5887.65, x1=5898.75, A=8.2, B=16.2, loops=20, bw_
 	xdata10, ydata10 = resolveSinglePeak(data1, bw=bw_list[1], samples=samples)
 	width10, width_height10, left_ips10, right_ips10 = fwhmFromPeak(xdata10, ydata10)
 
+	#y_peak00 = np.amax(ydata00)
+	#x_peak00 = np.take(xdata00, np.argsort(ydata00)[-1])
+
+	#y_peak01 = np.amax(ydata01)
+	#x_peak01 = np.take(xdata01, np.argsort(ydata01)[-1])
+	
+	#y_peak10 = np.amax(ydata10)
+	#x_peak10 = np.take(xdata10, np.argsort(ydata10)[-1])i
+	
+	f0 = interpolate.interp1d(xdata0, ydata0)
+	f00 = interpolate.interp1d(xdata00, ydata00)
+	f01 = interpolate.interp1d(xdata01, ydata01)
+	f10 = interpolate.interp1d(xdata10, ydata10)
+
+	peak0 = f0(loc0)
+	peak1 = f00(loc1)
+	peak2 = f01(loc2)
+	peak3 = f10(loc3)
+
 	if drawPlot:
 		nbins = 100
 
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 		
-		n, bins, _ = ax.hist(data, bins=nbins, density=True)
+		n, bins, _ = ax.hist(data, bins=nbins, alpha=0.2)
 		bin_width = bins[1] - bins[0]	
 		cutoff_idx = np.searchsorted(bins, cutoff)[0]
 		print("idx: ", cutoff_idx)
@@ -406,20 +488,28 @@ def getFWHM_fe55(data=None, x0=5887.65, x1=5898.75, A=8.2, B=16.2, loops=20, bw_
 		area1 = bin_width * sum(n[cutoff_idx:])
 		area = area0+area1
 		print("integral: ", area)
-		ratio0 = area0/area
-		ratio1 = area1/area		
+		ratio0 = area0
+		ratio1 = area1
 		
-		ax.plot(xdata0, ratio0*ydata0, label=("FWHM: " + str(round(width0))))	
-		ax.plot(xdata00, ratio0*ydata00, label=("FWHM: " + str(round(width00))))
-		ax.plot(xdata01, ratio0*ydata01, label=("FWHM: " + str(round(width01))))
-		ax.plot(xdata10, ratio1*ydata10, label=("FWHM: " + str(round(width10))))
-		ax.hlines(ratio0*width_height0, left_ips0, right_ips0)
-		ax.hlines(ratio0*width_height00, left_ips00, right_ips00)
-		ax.hlines(ratio0*width_height01, left_ips01, right_ips01)
-		ax.hlines(ratio1*width_height10, left_ips10, right_ips10)
+		#ax.plot(xdata0, ratio0*ydata0, label=("FWHM: {:.0f}".format(round(width0))), linewidth=3)	
+		ax.plot(xdata00, ratio0*ydata00, label=("FWHM: {:.0f}".format(round(width00))), linewidth=3)
+		ax.plot(xdata01, ratio0*ydata01, label=("FWHM: {:.0f}".format(round(width01))), linewidth=3)
+		ax.plot(xdata10, ratio1*ydata10, label=("FWHM: {:.0f}".format(round(width10))), linewidth=3)
+		#ax.hlines(ratio0*width_height0, left_ips0, right_ips0)
+		#ax.hlines(ratio0*width_height00, left_ips00, right_ips00)
+		#ax.hlines(ratio0*width_height01, left_ips01, right_ips01)
+		#ax.hlines(ratio1*width_height10, left_ips10, right_ips10)
+		
+		#ax.vlines(e_low, 0, ratio0*f0(e_low), linestyles='dashed')
+		#ax.vlines(loc0, 0, ratio0*peak0, linestyles='dashed')
+		ax.vlines(loc1, 0, ratio0*peak1, linestyles='dashed')
+		ax.vlines(loc2, 0, ratio0*peak2, linestyles='dashed')
+		ax.vlines(loc3, 0, ratio1*peak3, linestyles='dashed')
+
+		ax.set_ylim(ymin=0)
 		ax.legend(loc='upper right')
 		ax.set_xlabel("Energy [Ev]")
-		ax.set_ylabel("Frequencies")
+		ax.set_ylabel("Counts")
 		ax.set_title("Fe55 Energy Spectrum")
 
 		plt.show()
