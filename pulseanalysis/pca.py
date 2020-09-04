@@ -1410,40 +1410,6 @@ def nSphereToCartesian(phi, *thetas, norm=1):
 
 	return x
 
-def span2Sphere():
-	vects = np.zeros(shape=((360*180), 3))
-
-	for i in range(360):
-		for j in range(180):
-			vects[180*i + j] = nSphereToCartesian(i, [j])
-
-	return vects
-
-def showAllVects3D(steps=10):
-	#points = generate3DScatter()
-	
-	vects = span2Sphere()
-	#vects = allVectsND(3, 1, steps=steps)
-	#opt = np.array(optimizeEntropy3D_1step(points))
-
-	fig = plt.figure()
-	ax = plt.axes(projection = '3d')
-	
-	#direction_points = np.array([[0,0,0], opt]).T
-
-	#ax.plot(*direction_points, color='green')
-	ax.scatter(*np.rollaxis(vects, 1), marker='x')
-
-	plt.show()
-
-def getPCAEnergies():
-	traces = mkid.loadTraces()
-	points = generate2DScatter(traces)
-	values = project2DScatter(points)
-	energies = hist.distToEV(values)
-
-	return energies
-
 def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 		
 	start_dir = np.array(start_dir)
