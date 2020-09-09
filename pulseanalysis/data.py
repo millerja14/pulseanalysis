@@ -12,6 +12,16 @@ directory = "./data"
 outliers = []
 outliers_extra_peaks = []
 
+def loadEnergies(direct=directory):
+	
+	loop = mc.Loop.from_pickle(direct + "/loop_geometric_masked.p")
+	energies = []
+
+	for pulse in loop.pulses:
+		energies.append(pulse.energies[0])
+
+	return energies
+
 def loadTraces(direct=directory):
 
 	'''

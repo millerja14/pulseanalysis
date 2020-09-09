@@ -189,6 +189,9 @@ def fwhmFromPeak(xvalues, yvalues):
 
 def distToEV(values, peaks=e_peaks, drawPlot=False):
 	cutoff = getCutoffs(values, 2)
+	print("peaks: ", peaks)
+	print("cutoff: ", cutoff)
+	
 	values0 = values[values<cutoff]
 	values1 = values[values>=cutoff]
 
@@ -554,6 +557,9 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 	cutoffs = getCutoffs(data, npeaks, samples)	
 	cutoffs = np.append(cutoffs, [np.amin(data)-1, np.amax(data)+1])
 	cutoffs = np.sort(cutoffs)
+	
+	print("Cutoffs: ", cutoffs)
+
 	# split the data into peaks
 	data_split = []
 	fwhm_list = []
