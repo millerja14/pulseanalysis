@@ -9,8 +9,12 @@ from scipy import interpolate
 
 import pulseanalysis.data as mkid
 
+import matplotlib.animation as animation
+from matplotlib.ticker import FormatStrFormatter
+
 A=8.2
 B=16.2
+C=2.85
 
 loc1 = 5887.65
 loc2 = 5898.75
@@ -22,8 +26,58 @@ e_high = loc3
 e_cutoff = 6250
 e_peaks = np.array([e_low, e_high])
 
+def fe55_distribution(x_array, fwhm, x_peaks=[loc1, loc2, loc3], y_peaks=[A, B, C]):
+	sigma = fwhm/2.35482
 
+	x_peaks = np.array(x_peaks)
+	y_peaks = np.array(y_peaks)
+	
+	y_peaks_rel = y_peaks/(np.sum(y_peaks))	
 
+	fx_array = np.zeros_like(x_array)
+	for loc, height in zip(x_peaks, y_peaks_rel):
+		fx_array += height * stats.norm.pdf(x_array, loc, sigma)
+	
+	return fx_array
+
+def fe55_distribution_animate(fwhm_min, fwhm_max, xmin=5800, xmax=6600, samples=3000):
+	height_scale = 1.6 * B/(A+B+C)
+
+	fig = plt.figure()
+	fig.set_size_inches(19.2, 10.8, True)
+	#ax = plt.axes(xlabel="Energy [eV]", ylabel="Probability Density", xlim=(xmin, xmax), ylim=(0, height_scale * stats.norm.pdf(loc2, loc2, fwhm_min/2.35482)))
+	ax = plt.axes(xlim=(xmin, xmax))
+	ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+	line, = ax.plot([], [], lw=3)
+	x_array = np.linspace(xmin, xmax, samples)
+	x_array = np.append(x_array, [loc1, loc2, loc3])
+	x_array = np.sort(x_array)	
+
+	def init():
+		line.set_data([], [])
+		return line,
+
+	def animate(i):
+		#x_array = np.linspace(xmin, xmax, samples)
+		fx_array = fe55_distribution(x_array, i)
+		line.set_data(x_array, fx_array)
+		line.set_label(r"$\Delta$" + "E: {:.0f} eV".format(round(i)))
+		ax.legend(loc="upper right")
+		ax.set_ylim(0, height_scale * stats.norm.pdf(loc2, loc2, i/2.35482))
+		ax.set_ylabel("Probability Density")
+		ax.set_xlabel("Energy [eV]")
+		ax.set_title("Fe55 Radioactive Spectrum")
+		return line,
+
+	dsteps_up = np.linspace(fwhm_min, fwhm_max, 150)
+	#dsteps_down = np.linspace(fwhm_max, fwhm_min, 150)
+	#dsteps = np.concatenate((dsteps_up, dsteps_down))
+	dsteps = dsteps_up
+
+	anim = animation.FuncAnimation(fig, animate, init_func=init, frames=dsteps, interval=100, blit=True, repeat=False)
+	
+	writer = animation.PillowWriter(fps=30)
+	anim.save("./fe55spectrum.gif", writer=writer, dpi=50)
 
 #loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
 #traces = loop.pulses[0].p_trace
