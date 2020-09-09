@@ -464,15 +464,20 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.
 	#y_peak10 = np.amax(ydata10)
 	#x_peak10 = np.take(xdata10, np.argsort(ydata10)[-1])i
 	
-	f0 = interpolate.interp1d(xdata0, ydata0)
-	f00 = interpolate.interp1d(xdata00, ydata00)
-	f01 = interpolate.interp1d(xdata01, ydata01)
-	f10 = interpolate.interp1d(xdata10, ydata10)
+	f0 = interpolate.interp1d(xdata0, ydata0, bounds_error=False, fill_value=0)
+	f00 = interpolate.interp1d(xdata00, ydata00, bounds_error=False, fill_value=0)
+	f01 = interpolate.interp1d(xdata01, ydata01, bounds_error=False, fill_value=0)
+	f10 = interpolate.interp1d(xdata10, ydata10, bounds_error=False, fill_value=0)
 
 	peak0 = f0(loc0)
 	peak1 = f00(loc1)
 	peak2 = f01(loc2)
 	peak3 = f10(loc3)
+
+	xdata_threepeak = np.concatenate((xdata00, xdata01, xdata10))
+	xmin = np.amin(xdata_threepeak)
+	xmax = np.amax(xdata_threepeak)
+	xdata = np.linspace(xmin, xmax, 5*samples)
 
 	if drawPlot:
 		nbins = 100
@@ -491,10 +496,13 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.
 		ratio0 = area0
 		ratio1 = area1
 		
+		f = lambda x: ratio0*f00(x) + ratio0*f01(x) + ratio1*f10(x)
+	
 		#ax.plot(xdata0, ratio0*ydata0, label=("FWHM: {:.0f}".format(round(width0))), linewidth=3)	
-		ax.plot(xdata00, ratio0*ydata00, label=("FWHM: {:.0f}".format(round(width00))), linewidth=3)
-		ax.plot(xdata01, ratio0*ydata01, label=("FWHM: {:.0f}".format(round(width01))), linewidth=3)
-		ax.plot(xdata10, ratio1*ydata10, label=("FWHM: {:.0f}".format(round(width10))), linewidth=3)
+		ax.plot(xdata00, ratio0*ydata00, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width00,-1))), linewidth=3)
+		ax.plot(xdata01, ratio0*ydata01, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width01,-1))), linewidth=3)
+		ax.plot(xdata10, ratio1*ydata10, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width10,-1))), linewidth=3)
+		ax.plot(xdata, f(xdata), label=("total"), linestyle='dashed', linewidth=2)
 		#ax.hlines(ratio0*width_height0, left_ips0, right_ips0)
 		#ax.hlines(ratio0*width_height00, left_ips00, right_ips00)
 		#ax.hlines(ratio0*width_height01, left_ips01, right_ips01)
@@ -508,7 +516,7 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.
 
 		ax.set_ylim(ymin=0)
 		ax.legend(loc='upper right')
-		ax.set_xlabel("Energy [Ev]")
+		ax.set_xlabel("Energy [eV]")
 		ax.set_ylabel("Counts")
 		ax.set_title("Fe55 Energy Spectrum")
 
