@@ -78,7 +78,7 @@ def loadTraces_split(s=0.5, seed=None, direct=directory):
 
 	return traces1, traces2
 
-def plotTrace(pulse=None):
+def plotTrace_phase(pulse=None):
 	if not hasattr(pulse, 'p_trace'):
 		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
 		pulse = loop.pulses[0]
@@ -95,4 +95,26 @@ def plotTrace(pulse=None):
 	ax.set_title("Fe55 Photon Pulse")
 
 	plt.show()
+
+def plotTrace_combined(pulse=None):
+	if not(hasattr(pulse, 'p_trace') and hasattr(pulse, 'd_trace')):
+		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
+		pulse = loop.pulses[0]
+		p_trace = pulse.p_trace[1]
+		d_trace = pulse.d_trace[1]
+	
+	sep = 500
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	ax.plot(np.arange(len(p_trace)), p_trace)
+	ax.plot(np.arange(len(d_trace))+sep+len(p_trace), d_trace)
+	#ax.axvspan(0, len(p_trace), facecolor='palegreen', alpha=0.3)
+	#ax.axvspan(len(p_trace), len(d_trace)+len(p_trace)+sep, facecolor='peachpuff', alpha=0.3)
+	ax.axvline(len(p_trace) + sep//2, linestyle="dashed", color="black", lw=2)
+	ax.set_xticklabels([])
+	ax.set_yticklabels([])
+	ax.set_title("Photon Trace")
+	plt.show()
+
 	
