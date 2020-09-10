@@ -5,12 +5,14 @@ matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 from scipy.signal import find_peaks, peak_widths
-from scipy import interpolate
+from scipy import interpolate, optimize
 
 import pulseanalysis.data as mkid
 
 import matplotlib.animation as animation
 from matplotlib.ticker import FormatStrFormatter
+
+import cmath
 
 A=8.2
 B=16.2
@@ -25,6 +27,92 @@ e_low = loc0
 e_high = loc3
 e_cutoff = 6250
 e_peaks = np.array([e_low, e_high])
+
+def S21(f, fr, Qc=2*10**5, Qi=2*10**5):
+        Q = 1 / ((1/Qc) + (1/Qi))
+        S = 1 - (Q/Qc) / ( 1 + 2j * Q * (f-fr)/(fr) )
+        return 20*np.log10(abs(S))
+
+def transfer(f, L):
+	
+	if f == 0:
+		return np.pi/2
+	
+	w = 2*np.pi*f
+
+	R = 10**2
+	C1 = 10**-3
+	C2 = 10**-7
+	
+	IR = R
+	#IC1 = 1 / (1j*w*C1)
+	IC1 = 0
+	IC2 = 1 / (1j*w*C2)
+	IL = 1j*w*L
+
+	I_p = 1/((1/IL) + (1/IC2))
+
+	I_f = IC1 + I_p
+
+	I = I_f / (IR + I_f)
+
+	return cmath.phase(I)
+
+def findRoot():
+	L1 = 10**-4
+	L2 = L1 * 1.5
+
+	tfunc = np.vectorize(transfer)
+	f_1 = optimize.root_scalar(tfunc, args=(L1), bracket=[0.001, 10**5], method="brentq").root
+	f_2 = optimize.root_scalar(tfunc, args=(L2), bracket=[0.001, 10**5], method="brentq").root
+	x_range = np.linspace(0, 2*f_1, 10**3)
+	y1_range = tfunc(x_range, L1)
+	y2_range = tfunc(x_range, L2)
+	fig = plt.figure()
+	ax = fig.add_subplot()
+	ax.plot(x_range, y1_range+np.pi, lw=3, label="before incidence")
+	ax.plot(x_range, y2_range+np.pi, lw=3, linestyle="dashed", label="on incidence")
+	ax.set_xticks([f_1])
+	ax.set_xticklabels([r"$f_0$"])
+	ax.axvline(x=f_1, color="black", lw=2)
+	ax.axhline(y=tfunc(f_1, L1)+np.pi, xmin=0.1, xmax=0.3, color="black", lw=2)
+	ax.axhline(y=tfunc(f_1, L2)+np.pi, xmin=0.1, xmax=0.3, color="black", lw=2)
+	ax.set_xlabel("Frequency")
+	ax.set_ylabel("Phase Shift [rad]")
+	ax.set_title("KID Photon Response")
+	ax.legend(loc="upper right")
+	plt.show()
+
+def readoutAnimation(samples=1000):
+	fr1 = 5
+	f_spread = 0.001/2
+	fr2 = fr1 - f_spread/8
+	
+	f_array = np.linspace(fr1-f_spread, fr1+f_spread, samples)
+	s1_array = S21(f_array, fr1, Qc=1*10**5, Qi=1*10**5)
+	s2_array = 0.5 * S21(f_array, fr2, Qc=4*10**4, Qi=4*10**4)
+
+	f1 = interpolate.interp1d(f_array, s1_array)
+	f2 = interpolate.interp1d(f_array, s2_array)
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+	#ax.set_ylim(-0.9, 0.1)
+	#ax.set_xlim(fr1-f_spread, fr1+f_spread)
+	ax.set_xticks([fr2, fr1])
+	ax.set_xticklabels([r"$f'$", r"$f_0$"])
+	#ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+	ax.plot(f_array, s1_array, lw=3, label="before incidence")
+	ax.plot(f_array, s2_array, linestyle='dashed', lw=3, label="on incidence")
+	ax.axvline(x=fr1, color="black", lw=2)
+	ax.axvline(x=fr2, color="black", linestyle="dashed", lw=2) 
+	ax.axhline(y=f1(fr1), xmin=0.6, xmax=0.8, color="black", lw=2)
+	ax.axhline(y=f2(fr1), xmin=0.6, xmax=0.8, color="black", lw=2)
+	ax.set_ylabel("Power [dB]")
+	ax.set_xlabel("Frequency")
+	ax.set_title("KID Photon Response")
+	ax.legend(loc="lower left")
+	plt.show()
 
 def fe55_distribution(x_array, fwhm, x_peaks=[loc1, loc2, loc3], y_peaks=[A, B, C]):
 	sigma = fwhm/2.35482
