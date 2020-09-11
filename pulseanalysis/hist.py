@@ -687,7 +687,7 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 		
-		n, bins, _ = ax.hist(data, bins=nbins, alpha=0.2)
+		n, bins, _ = ax.hist(data, bins=nbins, alpha=0.3)
 		bin_width = bins[1] - bins[0]	
 		cutoff_idx = np.searchsorted(bins, cutoff)[0]
 		print("idx: ", cutoff_idx)
@@ -701,9 +701,9 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.
 		f = lambda x: ratio0*f00(x) + ratio0*f01(x) + ratio1*f10(x)
 	
 		#ax.plot(xdata0, ratio0*ydata0, label=("FWHM: {:.0f}".format(round(width0))), linewidth=3)	
-		ax.plot(xdata00, ratio0*ydata00, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width00,-1))), linewidth=3)
-		ax.plot(xdata01, ratio0*ydata01, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width01,-1))), linewidth=3)
-		ax.plot(xdata10, ratio1*ydata10, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width10,-1))), linewidth=3)
+		ax.plot(xdata00, ratio0*ydata00, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width00))), linewidth=3)
+		ax.plot(xdata01, ratio0*ydata01, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width01))), linewidth=3)
+		ax.plot(xdata10, ratio1*ydata10, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width10))), linewidth=3)
 		ax.plot(xdata, f(xdata), label=("total"), linestyle='dashed', linewidth=2)
 		#ax.hlines(ratio0*width_height0, left_ips0, right_ips0)
 		#ax.hlines(ratio0*width_height00, left_ips00, right_ips00)
@@ -720,11 +720,11 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.
 		ax.legend(loc='upper right')
 		ax.set_xlabel("Energy [eV]")
 		ax.set_ylabel("Counts")
-		ax.set_title("Fe55 Energy Spectrum")
+		ax.set_title(r"${}^{55}$" + "Fe Energy Spectrum")
 
 		plt.show()
 
-def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc="", xlabel="",  drawPlot=True):
+def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc="", xlabel="Energy [eV]",  drawPlot=True):
 	
 	x = np.linspace(np.amin(data), np.amax(data), samples)
 	kernel = stats.gaussian_kde(data)
@@ -778,7 +778,9 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 	if drawPlot:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
-		ax.hist(data, bins=100, density=True)
+		n, bins, _ = ax.hist(data, bins=100, alpha=0.3)
+		bin_width = bins[1] - bins[0]
+		area = sum(n)*bin_width
 		for i, (sdata, dist, height) in enumerate(zip(data_split, dist_list, rel_peak_heights)):
 			x = np.linspace(np.amin(sdata), np.amax(sdata), samples)
 			if bw_list[i] is None:
@@ -786,12 +788,12 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
 			else:
 				bw_str = str(bw_list[i])
 			#ax.plot(x, dist*height, label="BW: " + bw_str + " FWHM: " + str(round(fwhm_list[i].item(),2)))
-			ax.plot(x, dist*height, label="FWHM: " + str(round(fwhm_list[i].item())) + " eV", linewidth=3)
-			ax.set_ylabel("Frequencies")
+			ax.plot(x, dist*height*area, label=r"$\Delta$" + "E: " + str(round(fwhm_list[i].item())) + " eV", linewidth=3)
+			ax.set_ylabel("Counts")
 			if not xlabel=="":
 				ax.set_xlabel(xlabel)
 
-			title = "Fe55 Energies"
+			title = r"${}^{55}$" + "Fe Energy Spectrum"
 			if not desc=="":
 				title = title + ": " + desc
 			
