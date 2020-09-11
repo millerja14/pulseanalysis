@@ -1410,7 +1410,7 @@ def nSphereToCartesian(phi, *thetas, norm=1):
 
 	return x
 
-def scatterAnim(angle=180, start_dir=[0,1], colors=True):
+def scatterAnim(angle_start=0, angle_end=150, start_dir=[0,1], colors=True):
 		
 	start_dir = np.array(start_dir)
 
@@ -1436,10 +1436,10 @@ def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 		ax_points.scatter(points[:,0], points[:,1], marker='x', color='b')
 
 	draw1, = ax_points.plot(*direction_points, linewidth=3, color='g', label='')
-	ax_points.set(xlabel='PC1', ylabel='PC2', title='Photon Pulses in 2D Space')
+	ax_points.set(xlabel='Principal Component #1', ylabel='Principal Component #2', title='Photon Traces in 2D Space')
 
 	ax_hist.hist([])
-	ax_hist.set(xlabel='Projection [arb.]', ylabel='Frequency', title='1D Projection')
+	ax_hist.set(xlabel='Energy [eV]', ylabel='Counts/Bin', title='1D Projection')
 	ax_hist.set_xlim(-4,4)
 
 	draw = [draw1]
@@ -1454,7 +1454,7 @@ def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 
 		direction_r_points = np.array([[0,0], 3*direction_r]).T
 		draw[0].set_data(*direction_r_points)
-		draw[0].set_label("Angle: {0:d} degrees".format(int(d)))
+		draw[0].set_label("Projection Angle: {0:d} degrees".format(int(d)))
 		ax_points.legend(loc='upper right')
 		
 		dist = projectScatter(direction_r, points)		
@@ -1482,18 +1482,22 @@ def scatterAnim(angle=180, start_dir=[0,1], colors=True):
 			ax_hist.hist(data_scaled, bins=bins_list)
 		
 		ax_hist.text(0.65, 0.95, "Entropy: {0:.2f}".format(ent), transform=plt.gca().transAxes)
-		ax_hist.set(xlabel='Energy [eV]', ylabel='Frequency', title='1D Projection')
+		ax_hist.set(xlabel='Energy [eV]', ylabel='Counts/Bin', title='1D Projection')
 		ax_hist.set_xlim(4000,8000)
 		ax_hist.set_ylim(0,800)
 
 		return draw
 
-	dsteps = np.linspace(0, angle, 300)
+	dsteps_up = np.linspace(angle_start, angle_end, 230)
+	#dsteps_down = np.linspace(angle_end, angle_start, 300)
+	#dsteps = np.concatenate((dsteps_up, dsteps_down))
+	dsteps = dsteps_up	
+
 	anim = animation.FuncAnimation(fig, animate, frames=dsteps, interval=100)
 
 	
 	writer = animation.PillowWriter(fps=30)
-	anim.save('./proj_fastish_energyspace.gif', writer=writer, dpi=100)
+	anim.save('./proj_slower_energyspace_short.gif', writer=writer, dpi=80)
 
 	#plt.show()
 
