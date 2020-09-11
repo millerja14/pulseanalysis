@@ -1211,14 +1211,16 @@ def plotNDOptimization_cartesian(n=5, points=None, labels=None, seed=1234, verbo
 		ax_fwhm.set_title("Energy Resolution")
 		ax_fwhm.set_xlabel("PCA Dimension")
 		ax_fwhm.set_ylabel("FWHM [eV]")
+		ax_fwhm.set_ylim(40, 130)
 		ax_fwhm.legend(loc='upper right')
 
 		ax_ent.plot(dim_list, entropy_list, marker='x')
 		ax_ent.set_title("Minimum Entropy")
 		ax_ent.set_xlabel("PCA Dimension")
-		ax_ent.set_ylabel("Entropy")	
+		ax_ent.set_ylabel("Entropy")
+		ax_ent.set_ylim(2.7, 3.6)
 
-		fig.suptitle("PCA with Phase and Dissipation. Seed: " + str(seed))
+		fig.suptitle("PCA with Phase and Dissipation")
 	
 		plt.show()
 
