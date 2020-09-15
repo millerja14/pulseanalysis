@@ -20,6 +20,7 @@ import matplotlib.animation as animation
 
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
+from scipy import interpolate
 
 import pulseanalysis.hist as hist
 import pulseanalysis.data as mkid
@@ -405,24 +406,27 @@ def projectScatter(direction, points=None, drawPlot=False):
 
 	return proj
 
-def distToEV_withLabels(data, labels, e_peaks=e_peaks[-2:]):
+def distToEV_withLabels(data, labels, e_labels=[0,1]):
 	
 	'''
 	Scale 1-dimensional data into energy space. Data histogram must contain two peaks, and data
 	points belonging to each peak must be labeled as either 0 or 1.
 	'''
 
-	e_low = e_peaks[0]
-	e_high = e_peaks[1]
+	label_low = e_labels[0]
+	label_high = e_labels[1]
+
+	e_low = e_peaks[label_low]
+	e_high = e_peaks[label_high]
 
 	#scale data
 	peak_sep_ev = e_high - e_low		
 
-	data0 = data[labels == 5]
-	data1 = data[labels == 6]
+	data0 = data[labels == label_low]
+	data1 = data[labels == label_high]
 
-	pos0 = np.mean(data0)
-	pos1 = np.mean(data1)
+	pos0 = np.median(data0)
+	pos1 = np.median(data1)
 
 	deltapeak = np.abs(pos0-pos1)
 
@@ -436,7 +440,7 @@ def distToEV_withLabels(data, labels, e_peaks=e_peaks[-2:]):
 	#shift data
 	peak0 = e_low
 
-	data_scaled0 = data_scaled[labels == 5]
+	data_scaled0 = data_scaled[labels == label_low]
 
 	pos_scaled0 = np.mean(data_scaled0)
 	
@@ -446,7 +450,10 @@ def distToEV_withLabels(data, labels, e_peaks=e_peaks[-2:]):
 
 	return data_scaled_shifted
 
-def entropyFromDist(data, labels, e_peaks=e_peaks[-2:], drawPlot=False):
+def entropyFromDist(data, labels, e_labels=[0,1], drawPlot=False):
+	
+	e_high = e_peaks[e_labels[0]]
+	e_low = e_peaks[e_labels[1]]
 
 	#if labels is None:
 	#	data_scaled = data
@@ -481,14 +488,14 @@ def entropyFromDist(data, labels, e_peaks=e_peaks[-2:], drawPlot=False):
 	
 
 	# scale data because entropy does not make sense without constant bin size
-	data_scaled = distToEV_withLabels(data, labels, e_peaks=e_peaks)
+	data_scaled = distToEV_withLabels(data, labels, e_labels=e_labels)
 
 	nValues = np.size(data_scaled)
 	
 	minVal = np.amin(data_scaled)-1
 	maxVal = np.amax(data_scaled)+1
 	
-	binWidth = abs(e_peaks[1] - e_peaks[0])/60
+	binWidth = abs(e_high - e_low)/60
 
 	# the number of bins we create based on the width of the distribution to achieve the
 	# desired bin width
@@ -1083,13 +1090,13 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, npeaks=2
 
 	return direction, results
 
-def optimizeEntropyTwoPoint(dim=2, traces=None, points=None, labels=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=True):
+def optimizeEntropyTwoPoint(dim=2, traces=None, points=None, labels=None, npeaks=2, bw_list=[0.15,0.15,0.15,0.15,0.15,0.15,0.15], seed=1234, verbose=False, drawPlot=True):
 	if (points is None) or (labels is None):
 		print("optimizeEntropyCartesian_twoPoint(): No traces given, getting default traces...")
 		traces, labels = mkid.loadTraces_labeled()
 		points = generateScatter(dim=dim, traces=traces)
 
-		mask = np.in1d(labels, [5,6])
+		mask = np.in1d(labels, [0,1])
 
 		traces_twopoint = traces[mask]
 		labels_twopoint = labels[mask]
@@ -1103,13 +1110,43 @@ def optimizeEntropyTwoPoint(dim=2, traces=None, points=None, labels=None, npeaks
 	
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
-	#histdata = []
+
+	fig2 = plt.figure()
+	ax2 = fig2.add_subplot(111)
+	projections = []	
+
+	for i in range(len(e_peaks)):
+		projections.append(np.median(energies[labels==i]))
+	s = interpolate.InterpolatedUnivariateSpline([0, *projections], [0, *e_peaks])
+
+
+	cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+	energies_transformed = s(energies)
+	bin_width = abs(e_peaks[1]-e_peaks[0])/10
 	for i, e in enumerate(e_peaks):
-		#histdata.append(energies[labels==i])
-		ax.hist(energies[labels==i], alpha=0.5, bins=50)
-		ax.axvline(x=e)
+		histdata = energies_transformed[labels==i]
+
+		bins = np.arange(np.amin(histdata)-bin_width, np.amax(histdata)+bin_width, bin_width)
+
+		kde_x, kde_y = hist.resolveSinglePeak(data=histdata, bw=bw_list[i])
+		fwhm, fwhm_h, fwhm_l, fwhm_r = hist.fwhmFromPeak(kde_x, kde_y)	
+
+		n, _, _ = ax.hist(histdata, color=cycle[i], alpha=0.5, bins=bins)
+		area = bin_width * sum(n)
+		ax.plot(kde_x, area * kde_y, color=cycle[i], lw=2, label="R: {}".format(round(e_peaks[i]/fwhm,2)))
+		ax.axvline(x=np.median(histdata), color=cycle[i], lw=2)
+		ax.axvline(x=e, lw=2, color="black", linestyle="dashed")
 	#ax.hist(histdata, stacked=True, bins=100)
-	ax.set_title("Energies Scaled by Last Two Energies")
+	ax.set_title("Energies Scaled by First Two Energies")
+	ax.set_xlim(0, 4)	
+	ax.legend(loc="upper right")
+
+	ax2.plot(projections, e_peaks, marker='x', linestyle="")
+	linex = np.linspace(0, np.amax(e_peaks), 1000)
+	ax2.plot(linex, linex, lw=2, linestyle="dashed")
+	ax2.plot(linex, s(linex), lw=2, linestyle="dashed")
+	
 	plt.show()
 
 	#plot2DScatter_labeled(traces=traces_twopoint, labels=labels_twopoint)
