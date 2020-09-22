@@ -12,9 +12,13 @@ directory = "./data"
 outliers = []
 outliers_extra_peaks = []
 
+#coords = "/loop_geometric_masked.p"
+coords = "/loop_analytic_masked.p"
+combined = True
+
 def loadEnergies(direct=directory):
 	
-	loop = mc.Loop.from_pickle(direct + "/loop_geometric_masked.p")
+	loop = mc.Loop.from_pickle(direct + coords)
 	energies = []
 
 	for pulse in loop.pulses:
@@ -28,7 +32,7 @@ def loadTraces(direct=directory):
 	Load pulse tracs from KID data given a data directory.
 	'''
 	
-	loop = mc.Loop.from_pickle(direct + "/loop_geometric_masked.p")
+	loop = mc.Loop.from_pickle(direct + coords)
 
 	ptraces = np.zeros((0,2500))
 	dtraces = np.zeros((0,2500))
@@ -38,7 +42,8 @@ def loadTraces(direct=directory):
 		dtraces = np.append(dtraces, pulse.d_trace[pulse.mask], axis=0)
 
 	traces = ptraces
-	#traces = np.concatenate((ptraces, dtraces), axis=1)
+	if combined:
+		traces = np.concatenate((ptraces, dtraces), axis=1)
 
 	toRemove = np.union1d(outliers, outliers_extra_peaks)
 
@@ -48,7 +53,7 @@ def loadTraces(direct=directory):
 
 def loadTraces_labeled(direct=directory):
 	
-	loop = mc.Loop.from_pickle(direct + "/loop_geometric_masked.p")
+	loop = mc.Loop.from_pickle(direct + coords)
 	
 	ptraces = np.zeros((0,2500))
 	dtraces = np.zeros((0,2500))
@@ -64,7 +69,8 @@ def loadTraces_labeled(direct=directory):
 		labels = np.append(labels, np.ones(num)*i)
 	
 	traces = ptraces
-        #traces = np.concatenate((ptraces, dtraces), axis=1)
+	if combined:
+		traces = np.concatenate((ptraces, dtraces), axis=1)
 
 	toRemove = np.union1d(outliers, outliers_extra_peaks)
 
