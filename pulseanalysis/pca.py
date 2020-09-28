@@ -406,7 +406,7 @@ def projectScatter(direction, points=None, drawPlot=False):
 
 	return proj
 
-def distToEV_withLabels(data, labels, cal_labels=[0,5]):
+def distToEV_withLabels(data, labels, cal_labels=None):
 	
 	'''
 	Scale 1-dimensional data into energy space. Data histogram must contain two peaks, and data
@@ -450,10 +450,12 @@ def distToEV_withLabels(data, labels, cal_labels=[0,5]):
 
 	return data_scaled_shifted
 
-def entropyFromDist(data, labels, cal_labels=[0,5], drawPlot=False):
+def entropyFromDist(data, labels, cal_labels=None, drawPlot=False):
 
-	e_high = e_peaks[cal_labels[0]]
-	e_low = e_peaks[cal_labels[1]]
+	e_low = e_peaks[cal_labels[0]]
+	e_high = e_peaks[cal_labels[1]]
+
+	#print("Peaks: ", cal_labels)
 
 	#if labels is None:
 	#	data_scaled = data
@@ -488,28 +490,41 @@ def entropyFromDist(data, labels, cal_labels=[0,5], drawPlot=False):
 	
 
 	# scale data because entropy does not make sense without constant bin size
-	data_scaled = distToEV_withLabels(data, labels, cal_labels=cal_labels)
-
-	nValues = np.size(data_scaled)
+	data_scaled_total = distToEV_withLabels(data, labels, cal_labels=cal_labels)
 	
-	minVal = np.amin(data_scaled)-1
-	maxVal = np.amax(data_scaled)+1
+	# calculate entropy based only on the calibration peaks
+	# mask = np.in1d(labels, cal_labels)
+	# data_scaled = data_scaled[mask]	
 	
-	binWidth = abs(e_high - e_low)/60
+	binWidth = abs(e_peaks[1] - e_peaks[0])/60
 
-	# the number of bins we create based on the width of the distribution to achieve the
-	# desired bin width
-	nBins = int((maxVal-minVal)//binWidth + 2)
+	ent_total = 0
 
-	# generate list of bin edges
-	bins_list = np.linspace(minVal, minVal+binWidth*nBins, nBins, endpoint=False)
+	nValues_total = np.size(data_scaled_total)
 
-	# create histogram and get probabilities
-	histogram = np.histogram(data_scaled, bins=bins_list)
-	probs = histogram[0]/nValues
+	for label in np.unique(labels):
 
-	# calculate entropy
-	ent = -(probs*np.ma.log(probs)).sum()
+		data_scaled = data_scaled_total[labels==label]
+
+		nValues = np.size(data_scaled)
+		minVal = np.amin(data_scaled)-1
+		maxVal = np.amax(data_scaled)+1
+
+		# the number of bins we create based on the width of the distribution to achieve the
+		# desired bin width
+		nBins = int((maxVal-minVal)//binWidth + 2)
+
+		# generate list of bin edges
+		bins_list = np.linspace(minVal, minVal+binWidth*nBins, nBins, endpoint=False)
+
+		# create histogram and get probabilities
+		histogram = np.histogram(data_scaled, bins=bins_list)
+		probs = histogram[0]/nValues
+
+		# calculate entropy
+		ent = -(probs*np.ma.log(probs)).sum()
+
+		ent_total += ent
 
 	if drawPlot:
 		fig = plt.figure()
@@ -519,6 +534,45 @@ def entropyFromDist(data, labels, cal_labels=[0,5], drawPlot=False):
 		plt.show()	
 
 	return ent
+
+def entropyFromDist_unmasked(data, labels, cal_labels=None, drawPlot=False):
+
+	e_low = e_peaks[cal_labels[0]]
+	e_high = e_peaks[cal_labels[1]]
+
+	 # scale data because entropy does not make sense without constant bin size
+	data_scaled = distToEV_withLabels(data, labels, cal_labels=cal_labels)
+
+	nValues = np.size(data_scaled)
+
+	minVal = np.amin(data_scaled)-1
+	maxVal = np.amax(data_scaled)+1
+
+	binWidth = abs(e_peaks[1] - e_peaks[0])/60
+
+        # the number of bins we create based on the width of the distribution to achieve the
+        # desired bin width
+	nBins = int((maxVal-minVal)//binWidth + 2)
+
+        # generate list of bin edges
+	bins_list = np.linspace(minVal, minVal+binWidth*nBins, nBins, endpoint=False)
+
+        # create histogram and get probabilities
+	histogram = np.histogram(data_scaled, bins=bins_list)
+	probs = histogram[0]/nValues
+
+        # calculate entropy
+	ent = -(probs*np.ma.log(probs)).sum()
+
+	if drawPlot:
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+		ax.hist(data_scaled, bins=bins_list)
+		ax.set_title("Data binned for Entropy Calculation")
+		plt.show()
+
+	return ent
+
 
 def allVectsND(dim, norm, steps=10):
 	
@@ -615,7 +669,7 @@ def plotEntropy(dim, samples=1000, showProjection=False):
 	print("Best direction (spherical):", direction)
 	print("Best direction (cartesian):", direction_c)
 
-def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, points=None, labels=None, cal_labels=[5,6], interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False, verbose=True):
+def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, points=None, labels=None, cal_labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False, verbose=True):
 	
 	'''
 	Optimize projection direction in any dimension by minimizing entropy. Coordinates of result are in spherical. Details of each optimization are pickled to a file.
@@ -684,7 +738,7 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, 
 	direction = nSphereToCartesian(*opt.x)
 	data = projectScatter(direction, points)
 	print("Data shape: ", data.shape)
-	energies = distToEV_withLabels(data, labels)
+	energies = distToEV_withLabels(data, labels, cal_labels=cal_labels)
 
 	# plot intermediate data for debugging	
 	if drawPlot:
@@ -702,7 +756,13 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, 
 		plt.show()
 		
 	# calculate fwhm of peaks
-	fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA Optimization Using Components " + str(comp_list)), xlabel="Energy [eV]", drawPlot=drawPlot)
+	#fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=(str(dim) + "D PCA Optimization Using Components " + str(comp_list)), xlabel="Energy [eV]", drawPlot=drawPlot)
+	fwhm_list = []
+	for i in range(len(e_peaks)):
+		kde_x, kde_y = hist.resolveSinglePeak(data=energies[labels==i], bw=bw_list[i])
+		fwhm, fwhm_h, fwhm_l, fwhm_r = hist.fwhmFromPeak(kde_x, kde_y)
+		fwhm_list.append(fwhm)
+	
 
 	# save resutls to file if using first n components (not custom comp list)
 	if not usingCustomComps:
@@ -711,7 +771,7 @@ def optimizeEntropyNSphere(dim=3, comp_list=None, start_coords=[], traces=None, 
 		others_key = "others"
 		
 		# creat dictionary for every optimization
-		entry = {"dimension": dim, "entropy": ent_min, "spherical": opt.x.tolist(), "spherical_start": start_coords, "fwhm": fwhm_list.tolist(), "popsize": popsize, "tol": tol, "mutation": mutation, "seed": seed, "nfev": opt.nfev, "nit": opt.nit}		
+		entry = {"dimension": dim, "entropy": ent_min, "spherical": opt.x.tolist(), "spherical_start": start_coords, "fwhm": fwhm_list, "popsize": popsize, "tol": tol, "mutation": mutation, "seed": seed, "nfev": opt.nfev, "nit": opt.nit}		
 		
 		if not os.path.isfile(db_path):
 			pickle.dump({key: entry}, open(db_path, "wb"))
@@ -1012,7 +1072,7 @@ def optimizeEntropyNSphere_bestComps(n=5, dim=15, comp_list=None, start_coords=[
 	
 	return opt, fwhm_list, comp_list
 
-def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, cal_labels=[0,5], bw_list=[.15,.2], seed=1234, verbose=False):
+def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, cal_labels=None, bw_list=[.15,.2], seed=1234, verbose=False):
 
 	# get points if needed
 	if (points is None) or (labels is None):
@@ -1026,7 +1086,7 @@ def optimizeEntropyCartesian_recursive(dim=7, points=None, labels=None, cal_labe
 	if dim == 2:
 		if verbose:
 			print("Optimizing in 2D...")
-		opt, _ = optimizeEntropyNSphere(dim=2, points=points[:,:2], labels=labels, cal_labels=cal_labels, seed=seed, drawPlot=False, verbose=verbose)
+		opt, _ = optimizeEntropyNSphere(dim=2, points=points[:,:2], labels=labels, cal_labels=cal_labels, bw_list=bw_list, seed=seed, drawPlot=False, verbose=verbose)
 		direction = nSphereToCartesian(*opt.x)
 		direction = direction/np.linalg.norm(direction)
 		
@@ -1114,7 +1174,7 @@ def optimizeEntropyTwoPointNSphere(title, dim=3, traces=None, points=None, label
 	data = projectScatter(direction, points=points)	
 	energies = distToEV_withLabels(data, labels)
 
-	title = title + "Peaks {} NSphere dim: {}".format(e_labels, dim)
+	title = title + "Peaks {} NSphere dim: {}".format(cal_labels, dim)
 
 	plotDistribution(energies, labels, title=title, bw_list=bw_list)
 
@@ -1137,29 +1197,29 @@ def optimizeEntropyTwoPointCartesian(title, n=10, dim=15, traces=None, points=No
                 points = generateScatter(dim=dim, traces=traces)
 
 	#mask = np.invert(np.in1d(labels, cal_labels))
-	#labels_twopoint = labels[mask]
-	#points_twopoint = points[mask]
 	#labels_masked = np.ma.masked_array(labels, mask=mask)	
 
-	direction, best_comps = optimizeEntropyCartesian(n=n, dim=dim, points=points, labels=labels, cal_labels=cal_labels, seed=seed, drawPlot=False, verbose=verbose)
+	direction, best_comps = optimizeEntropyCartesian(n=n, dim=dim, points=points, labels=labels, cal_labels=cal_labels, bw_list=bw_list, seed=seed, drawPlot=False, verbose=verbose)
 	data = projectScatter(direction, points=np.take(points, best_comps-1, axis=1))
-	print("Labels masked: ", np.unique(labels_masked))
-	energies = distToEV_withLabels(data, labels_masked)
+	#print("Labels masked: ", np.unique(labels_masked))
+	energies = distToEV_withLabels(data, labels, cal_labels=cal_labels)
+	ent = entropyFromDist(data, labels, cal_labels=cal_labels)
 
-	title = title + " Peaks {} Masked Cartesian dim {} of {}".format(e_labels, n, dim)
+
+	title = title + " Peaks {} Masked Cartesian dim {} of {} Ent {}".format(cal_labels, n, dim, round(ent, 2))
 
 	plotDistribution(energies, labels, title=title, bw_list=bw_list, drawPlot=drawPlot)
 
-def optimizeEntropyTwoPointCartesian_routine(title, n=15, dim=30, traces=None, points=None, labels=None, npeaks=2, bw_list=7*[0.1], seed=1234, verbose=False, drawPlot=True):
-	e_labels_list = [[0,5], [0,2], [0,3], [0,4], [0,6]]
+def optimizeEntropyTwoPointCartesian_routine(title, n=15, dim=30, traces=None, points=None, labels=None, bw_list=7*[0.1], seed=1234, verbose=False, drawPlot=True):
+	cal_labels_list = [[0,1], [0,2], [0,3], [0,4], [0,5], [1,2], [1,3], [1,4], [1,5], [2,3], [2,4], [2,5], [3,4], [3,5], [4,5]]
 
 	if (points is None) or (labels is None):
 		print("optimizeEntropyCartesianTwoPoint_routine(): No traces given, getting default traces...")
 		traces, labels = mkid.loadTraces_labeled()
 		points = generateScatter(dim=dim, traces=traces)
 
-	for e_labels in e_labels_list:
-		optimizeEntropyTwoPointCartesian(title, n=n, dim=dim, traces=traces, points=points, labels=labels, e_labels=e_labels, npeaks=npeaks, bw_list=bw_list, seed=seed, verbose=verbose, drawPlot=False)
+	for cal_labels in cal_labels_list:
+		optimizeEntropyTwoPointCartesian(title, n=n, dim=dim, traces=traces, points=points, labels=labels, cal_labels=cal_labels, bw_list=bw_list, seed=seed, verbose=verbose, drawPlot=False)
 
 
 def optimizeEntropyTwoPointNSphere_bestComps(title, n=10, dim=15, traces=None, points=None, labels=None, e_labels=[0,1], npeaks=2, bw_list=7*[0.15], seed=1234, verbose=False, drawPlot=True):
@@ -1190,12 +1250,23 @@ def plotDistribution(energies, labels, title="", bw_list=7*[0.1], drawPlot=False
 	ax = fig.add_subplot(121)
 	ax2 = fig.add_subplot(122)
 	projections = []	
+	projections_xerr = []
 
 	for i in range(len(e_peaks)):
-		projections.append(np.median(energies[labels==i]))
+		histdata = energies[labels==i]
+		median = np.median(histdata)
+		projections.append(median)
+		projections_xerr.append([median - np.percentile(histdata, 25), np.percentile(histdata, 75)-median])
+
+	projections_xerr = np.array(projections_xerr).T
+
 	#print("Projections: ", projections)
-	s = interpolate.make_interp_spline([0, *projections], [0, *e_peaks], k=2)
-	#s = lambda x: x
+	
+	try:
+		s = interpolate.make_interp_spline([0, *projections], [0, *e_peaks], k=2)
+	except:
+		print("plotDistribution(): Could not make spline.")
+		s = lambda x: x
 
 	cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -1219,8 +1290,9 @@ def plotDistribution(energies, labels, title="", bw_list=7*[0.1], drawPlot=False
 	ax.set_ylabel("Counts/Bin")
 	ax.set_xlim(0, 4)	
 	ax.legend(loc="upper right")
-
-	ax2.plot(projections, e_peaks, marker='x', linestyle="")
+	
+	print("Xerr: ", projections_xerr)
+	ax2.errorbar(projections, e_peaks, xerr=projections_xerr, marker='x', linestyle="", label="Distribution Median")
 	linex = np.linspace(0, np.amax(projections)+1, 1000)
 	ax2.plot(linex, linex, lw=1, linestyle="dashed", label="Linear Model")
 	ax2.plot(linex, s(linex), lw=1, label="Calibration Spline")
@@ -1251,7 +1323,7 @@ def plotDistribution(energies, labels, title="", bw_list=7*[0.1], drawPlot=False
 	#points_reduced = np.take(points, (comp_list-1), axis=1)
 	#projectScatter(direction, points=points, drawPlot=True)
 
-def optimizeEntropyCartesian(n=None, dim=100, traces=None, points=None, labels=None, cal_labels=[0,5], npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=True):
+def optimizeEntropyCartesian(n=None, dim=100, traces=None, points=None, labels=None, cal_labels=None, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=True):
 
 	comp_list = np.arange(dim)+1
 
@@ -1265,19 +1337,19 @@ def optimizeEntropyCartesian(n=None, dim=100, traces=None, points=None, labels=N
 		points, labels = generateScatter_labeled(dim=dim, traces=traces)
 	
 	if n is not None:
-		comp_list = getImpactfulComponents_cartesian(n=n, dim=dim, points=points, labels=labels, cal_labels=cal_labels, seed=seed)
+		comp_list = getImpactfulComponents_cartesian(n=n, dim=dim, points=points, labels=labels, cal_labels=cal_labels, bw_list=bw_list, seed=seed)
 		points = np.take(points, comp_list-1, axis=1)
 		#print("Points shape: ", points.shape)
 		#print("Labels size: ", labels.shape)
 
 	dim = comp_list.size
 
-	direction, results = optimizeEntropyCartesian_recursive(dim=dim, points=points, labels=labels, cal_labels=cal_labels, npeaks=npeaks, bw_list=bw_list, seed=seed, verbose=verbose)
+	direction, results = optimizeEntropyCartesian_recursive(dim=dim, points=points, labels=labels, cal_labels=cal_labels, bw_list=bw_list, seed=seed, verbose=verbose)
 	
-	ent = results[-1]["entropy"]
+	#ent = results[-1]["entropy"]
 
-	data = projectScatter(direction, points[:,:dim])
-	energies = distToEV_withLabels(data, labels)
+	#data = projectScatter(direction, points[:,:dim])
+	#energies = distToEV_withLabels(data, labels)
 	#fwhm_list = hist.getFWHM_separatePeaks(energies, npeaks=npeaks, bw_list=bw_list, desc=("Entropy " + str(ent)), xlabel="Energy [eV]", drawPlot=drawPlot)
 
 	return direction, comp_list
@@ -1304,7 +1376,7 @@ def getEnergiesCartesian(n=30, dim=80, traces=None, points=None, lables=None, np
 	return energies
 	
 
-def plotNDOptimization_cartesian(n=5, points=None, labels=None, cal_labels=[0, 5], title="", bw_list=[.1]*7, seed=1234, verbose=False, drawPlot=True):
+def plotNDOptimization_cartesian(n=5, points=None, labels=None, cal_labels=None, title="", bw_list=[.1]*7, seed=1234, verbose=False, drawPlot=True):
 	
 	'''
 	Plot entropy and fwhm for the first n dimensions of principal component space. Uses recursive optimization
@@ -1489,11 +1561,11 @@ def plotNDOptimization_compare(n=5):
 
 	plt.show()
 
-def getImpactfulComponents_cartesian(n=5, dim=10, points=None, labels=None, cal_labels=[0,5], seed=1234):
+def getImpactfulComponents_cartesian(n=5, dim=10, points=None, labels=None, cal_labels=None, bw_list=[0.1]*7, seed=1234):
 	if n>dim:
 		raise ValueError("Number of components requested must be lower than dimension.")
 
-	dim_list, entropy_list = plotNDOptimization_cartesian(n=dim, points=points, labels=labels, cal_labels=cal_labels, seed=seed, drawPlot=False)
+	dim_list, entropy_list = plotNDOptimization_cartesian(n=dim, points=points, labels=labels, cal_labels=cal_labels, bw_list=bw_list, seed=seed, drawPlot=False)
 
 	delta_entropy_list = np.ediff1d(entropy_list)
 	indices = np.argsort(delta_entropy_list)
