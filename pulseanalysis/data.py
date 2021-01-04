@@ -13,7 +13,7 @@ outliers = []
 outliers_extra_peaks = []
 
 #coords = "/loop_geometric_masked.p"
-coords = "/loop_analytic_masked.p"
+coords = "/loop_spectra.p"
 combined = True
 
 def loadEnergies(direct=directory):
@@ -23,7 +23,8 @@ def loadEnergies(direct=directory):
 
 	for pulse in loop.pulses:
 		energies.append(pulse.energies[0])
-
+	
+	energies.sort()
 	return energies
 
 def loadTraces(direct=directory):
@@ -33,13 +34,16 @@ def loadTraces(direct=directory):
 	'''
 	
 	loop = mc.Loop.from_pickle(direct + coords)
-
-	ptraces = np.zeros((0,2500))
-	dtraces = np.zeros((0,2500))
+	
+	plength = loop.pulses[0].p_trace[0].size
+	dlength = loop.pulses[0].d_trace[0].size
+	
+	ptraces = np.zeros((0,plength))
+	dtraces = np.zeros((0,dlength))
 
 	for i, pulse in enumerate(loop.pulses):
-		ptraces = np.append(ptraces, pulse.p_trace[pulse.mask], axis=0)
-		dtraces = np.append(dtraces, pulse.d_trace[pulse.mask], axis=0)
+		ptraces = np.append(ptraces, [pulse.p_trace[pulse.mask]], axis=0)
+		dtraces = np.append(dtraces, [pulse.d_trace[pulse.mask]], axis=0)
 
 	traces = ptraces
 	if combined:
@@ -52,29 +56,53 @@ def loadTraces(direct=directory):
 	return traces
 
 def loadTraces_labeled(direct=directory):
-	
 	loop = mc.Loop.from_pickle(direct + coords)
-	
-	ptraces = np.zeros((0,2500))
-	dtraces = np.zeros((0,2500))
-	
-	labels = np.array([])
+	loop._set_directory('/data/jmiller/optical_analysis/data/')
+
+	plength = loop.pulses[0].p_trace[0].size
+	dlength = loop.pulses[0].d_trace[0].size
+
+	ptraces = np.zeros((0,plength))
+	dtraces = np.zeros((0,dlength))
+
+	counts = np.array([])
+	energies = np.array([])
+	ptrace_blocks = np.array([], dtype=object)
+	dtrace_blocks = np.array([], dtype=object)
 
 	for i, pulse in enumerate(loop.pulses):
 
-		ptraces = np.append(ptraces, pulse.p_trace[pulse.mask], axis=0)
-		dtraces = np.append(dtraces, pulse.d_trace[pulse.mask], axis=0)
+		e = pulse.energies[0]
+		pos = int(np.searchsorted(energies, e))
+		energies = np.insert(energies, pos, e)
+		
+		print("Pos: ", pos)
+		# insert new data according to sorted energy
+		ptraces = np.insert(ptraces, int(np.sum(counts[:pos])), pulse.p_trace[pulse.mask], axis=0)
+		dtraces = np.insert(dtraces, int(np.sum(counts[:pos])), pulse.d_trace[pulse.mask], axis=0)
 
-		num = pulse.p_trace[pulse.mask].shape[0]
-		labels = np.append(labels, np.ones(num)*i)
-	
+		count = pulse.p_trace[pulse.mask].shape[0]
+		print("Energy: {} Count: {}".format(e, count))
+		counts = np.insert(counts, pos, count)
+
+	#ptraces = np.concatenate(tuple(ptrace_blocks), axis=0)
+	#dtraces = np.concatenate(tuple(dtrace_blocks), axis=0)
+
+	print("Energies: ", energies)
+	print("Counts: ", counts)
+
+	# construct label array
+	labels = np.array([])
+	for label, count in enumerate(counts):
+		labels = np.append(labels, np.ones(int(count))*label)
+
 	traces = ptraces
 	if combined:
 		traces = np.concatenate((ptraces, dtraces), axis=1)
 
-	toRemove = np.union1d(outliers, outliers_extra_peaks)
+	#toRemove = np.union1d(outliers, outliers_extra_peaks)
 
-	traces = np.delete(traces, toRemove, axis=0)
+	#traces = np.delete(traces, toRemove, axis=0)
 
 	return traces, labels
 

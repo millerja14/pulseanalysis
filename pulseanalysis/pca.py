@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib as mpl
 mpl.use('tkagg')
 import matplotlib.pyplot as plt
+#plt.ioff()
 mpl.rcParams['font.size'] = 22
 mpl.rcParams['lines.linewidth'] = 1.0
 mpl.rcParams['axes.labelpad'] = 6.0
@@ -26,7 +27,7 @@ import pulseanalysis.hist as hist
 import pulseanalysis.data as mkid
 
 
-import objsize
+# import objsize
 
 
 
@@ -411,7 +412,7 @@ def projectScatter(direction, points=None, drawPlot=False):
 
 	return proj
 
-def distToEV_withLabels(data, labels, cal_labels=None, transform=None):
+def distToEV_withLabels(data, labels, cal_labels=None, transform=None, verbose=False):
 	
 	'''
 	Scale 1-dimensional data into energy space. Data histogram must contain two peaks, and data
@@ -438,9 +439,18 @@ def distToEV_withLabels(data, labels, cal_labels=None, transform=None):
 	pos0 = np.median(data0)
 	pos1 = np.median(data1)
 
-	deltapeak = np.abs(pos0-pos1)
+	deltapeak = pos1-pos0
 
 	scale = peak_sep_ev/deltapeak
+
+	if verbose:
+		print("E low: ", e_low)
+		print("E high: ", e_high)
+		print("Label low: ", label_low)
+		print("Label high: ", label_high)
+		print("Pos low: ", pos0)
+		print("Pos high: ", pos1)
+		print("Scale: ", scale)
 
 	#if pos0 > pos1:
 	#	scale = -scale
@@ -452,13 +462,13 @@ def distToEV_withLabels(data, labels, cal_labels=None, transform=None):
 
 	data_scaled0 = data_scaled[labels == label_low]
 
-	pos_scaled0 = np.mean(data_scaled0)
+	pos_scaled0 = np.median(data_scaled0)
 	
 	shift = peak0 - pos_scaled0
 
 	data_scaled_shifted = data_scaled + shift
 
-	print("Transforming amplitudes to energies...")
+	#print("Transforming amplitudes to energies...")
 	data_scaled_shifted_transformed = s(data_scaled_shifted)
 
 	return data_scaled_shifted_transformed
@@ -586,7 +596,7 @@ def entropyFromDist_masked(data, labels, cal_labels=None, transform=None, masked
 
 	return ent_total
 
-def entropyFromDist(data, labels, cal_labels=None, transform=None, masked=False, drawPlot=False, useJointEntropy=True):
+def entropyFromDist(data, labels, cal_labels=None, transform=None, masked=False, drawPlot=False, useJointEntropy=True, verbose=False):
 
 	e_low = e_peaks[cal_labels[0]]
 	e_high = e_peaks[cal_labels[1]]
@@ -594,7 +604,7 @@ def entropyFromDist(data, labels, cal_labels=None, transform=None, masked=False,
 	# scale data because entropy does not make sense without constant bin size
 	#size_data = objsize.get_deep_size(data)
 	#print("Size data: ", size_data)
-	data_scaled_total = distToEV_withLabels(data, labels, cal_labels=cal_labels, transform=transform)
+	data_scaled_total = distToEV_withLabels(data, labels, cal_labels=cal_labels, transform=transform, verbose=verbose)
 	#size_data_scaled_total = objsize.get_deep_size(data)
 	#print("Size data_scaled_total: ", size_data_scaled_total)
 	#print("Base data_scaled_total: ", data_scaled_total.base)	
@@ -672,12 +682,12 @@ def entropyFromDist(data, labels, cal_labels=None, transform=None, masked=False,
 		probs_total = histogram_total/nValues_total
 		ent_total = -(probs_total*np.ma.log(probs_total)).sum()
 
-	print("Entropy: ", ent_total)
+	#print("Entropy: ", ent_total)
 
 	if drawPlot:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
-		ax.hist(data_scaled, bins=bins_list)
+		ax.hist(data_scaled_total, bins=300)
 		ax.set_title("Data binned for Entropy Calculation")
 		plt.show()
 	
@@ -1289,17 +1299,63 @@ def optimizeEntropyTwoPointNSphere(title, dim=3, traces=None, points=None, label
 
 	plotDistribution(energies, labels, title=title, bw_list=bw_list)
 
-def plotNDOptimizationTwoPoint(title, n=5, points=None, labels=None, cal_labels=[0,5], bw_list=[0.1]*7, seed=1234, verbose=False, drawPlot=True):
+def plotNDOptimizationTwoPoint(title, n=5, dim=10, points=None, labels=None, cal_labels=[0,1,2,3,4,5,6], bw_list=[0.1]*7, seed=1234, verbose=False, drawPlot=True):
 	if (points is None) or (labels is None):
 		print("optimizeEntropyCartesian_twoPoint(): No traces given, getting default traces...")
 		traces, labels = mkid.loadTraces_labeled()
-		points = generateScatter(dim=n, traces=traces)
+		points = generateScatter(dim=dim, traces=traces)
+		del traces
 
-	#mask = np.in1d(labels, [0,1])
-	#labels_twopoint = labels[mask]
-	#points_twopoint = points[mask]
+	cal_mask = np.in1d(labels, cal_labels)
+	
+	cal_labels = labels[cal_mask]
+	cal_points = points[cal_mask]
 
-	plotNDOptimization_cartesian(n=n, points=points, labels=labels, cal_labels=cal_labels, title=title, bw_list=bw_list, seed=seed, verbose=verbose, drawPlot=drawPlot)
+	print("cal_labels shape: ", cal_labels.shape)
+	print("cal_labels: ", cal_labels)
+	print("cal_points shape: ", cal_points.shape)
+
+	# Ax = b
+		
+	cal_energies = np.array([e_peaks[int(i)] for i in cal_labels])
+
+	print("cal_energies shape: ", cal_energies.shape)
+	print("cal_energies: ", cal_energies)
+
+	cal_weights, res, _, _ = np.linalg.lstsq(np.hstack((np.ones((cal_points.shape[0], 1)), cal_points)), cal_energies, rcond=None)
+	
+	lstsq_func = lambda x: np.sum(np.square((x[0] + cal_points @ x[1:]) - cal_energies))
+	cal_weights_grad = optimize.minimize(lstsq_func, np.zeros_like(cal_weights)).x	
+
+	print("Fit residual: ", res)
+	print("cal_weights: ", cal_weights)
+
+	print("Grad residual: ", lstsq_func(cal_weights_grad))
+	print("cal_weights_grad: ", cal_weights_grad)
+
+	# compute entropy
+
+	data_grad = cal_weights_grad[0] + points @ cal_weights_grad[1:]
+	projections = []
+	for i in range(len(e_peaks)):
+		projections.append(np.median(data_grad[labels==i]))
+	x_peaks = [0, *projections]
+	y_peaks = [0, *e_peaks]
+	transform = interpolate.make_interp_spline(x_peaks, y_peaks, k=2)
+	lstsq_func_trans = lambda x: np.sum(np.square(transform(x[0] + cal_points @ x[1:]) - cal_energies))
+	cal_weights_grad_trans = optimize.minimize(lstsq_func_trans, np.zeros_like(cal_weights)).x
+	data_grad_trans = transform(cal_weights_grad_trans[0] + points @ cal_weights_grad_trans[1:])
+
+	data = cal_weights[0] + points @ cal_weights[1:]
+
+	print("data shape: ", data.shape)
+
+	#plt.hist(data, bins=300)
+	#plt.show()
+
+	plotDistribution(data, labels, title="Test Closed-Form Solution", bw_list=bw_list, drawPlot=drawPlot)
+	plotDistribution(data_grad, labels, title="Test Grad Solution Round 1", bw_list=bw_list, drawPlot=drawPlot)
+	plotDistribution(data_grad_trans, labels, title="Test Grad Solution Round 2", bw_list=bw_list, drawPlot=drawPlot)
 
 def optimizeEntropyTwoPointCartesian(title, n=10, dim=15, traces=None, points=None, labels=None, cal_labels=[0,5], bw_list=7*[0.1], seed=1234, verbose=False, drawPlot=True):
 	if (points is None) or (labels is None):
@@ -1307,6 +1363,9 @@ def optimizeEntropyTwoPointCartesian(title, n=10, dim=15, traces=None, points=No
 		traces, labels = mkid.loadTraces_labeled()
 		points = generateScatter(dim=dim, traces=traces)
 		del traces
+
+	print("Labels: ", labels)
+	print("Energies: ", e_peaks)	
 
 	#mask = np.invert(np.in1d(labels, cal_labels))
 	#labels_masked = np.ma.masked_array(labels, mask=mask)	
@@ -1319,8 +1378,8 @@ def optimizeEntropyTwoPointCartesian(title, n=10, dim=15, traces=None, points=No
 	data = projectScatter(direction, points=np.take(points, best_comps-1, axis=1))
 	energies = distToEV_withLabels(data, labels, cal_labels=cal_labels)
 
-	ent1_joint = entropyFromDist(data, labels, masked=False, cal_labels=cal_labels, transform=transform, useJointEntropy=True)
-	ent1_total = entropyFromDist(data, labels, masked=False, cal_labels=cal_labels, transform=transform, useJointEntropy=False)
+	ent1_joint = entropyFromDist(data, labels, masked=False, cal_labels=cal_labels, transform=transform, useJointEntropy=True, verbose=True)
+	ent1_total = entropyFromDist(data, labels, masked=False, cal_labels=cal_labels, transform=transform, useJointEntropy=False, verbose=True)
 
 	title1 = title + " Peaks {} Masked Cartesian dim {} of {} Round 1 J Ent {} T Ent {}".format(cal_labels, n, dim, round(ent1_joint, 2), round(ent1_total, 2))
 
@@ -1347,19 +1406,46 @@ def optimizeEntropyTwoPointCartesian(title, n=10, dim=15, traces=None, points=No
 
 	title2 = title + " Peaks {} Masked Cartesian dim {} of {} Round 2 J Ent {} T Ent {}".format(cal_labels, n, dim, round(ent2_joint, 2), round(ent2_total, 2))
 
-	plotDistribution(energies, labels, title=title2, bw_list=bw_list, drawPlot=drawPlot)
+	r_array = plotDistribution(energies, labels, title=title2, bw_list=bw_list, drawPlot=drawPlot)
+
+	return (ent1_joint, ent2_joint), (ent1_total, ent2_total), r_array
 
 def optimizeEntropyTwoPointCartesian_routine(title, n=15, dim=30, traces=None, points=None, labels=None, bw_list=7*[0.1], seed=1234, verbose=False, drawPlot=False):
 	cal_labels_list = [[0,1], [0,2], [0,3], [0,4], [0,5], [1,2], [1,3], [1,4], [1,5], [2,3], [2,4], [2,5], [3,4], [3,5], [4,5]]
+	#cal_labels_list = [[0,1], [0,5]]
+	cal_labels_list = np.array(cal_labels_list)
+
 
 	if (points is None) or (labels is None):
 		print("optimizeEntropyCartesianTwoPoint_routine(): No traces given, getting default traces...")
 		traces, labels = mkid.loadTraces_labeled()
 		points = generateScatter(dim=dim, traces=traces)
 
-	for cal_labels in cal_labels_list:
-		optimizeEntropyTwoPointCartesian(title, n=n, dim=dim, traces=traces, points=points, labels=labels, cal_labels=cal_labels, bw_list=bw_list, seed=seed, verbose=verbose, drawPlot=False)
+	num_labels = cal_labels_list.shape[0]
+	r_array_array = np.zeros((num_labels, len(e_peaks)))
+	joint_ent_array = np.zeros((num_labels, 2))
+	total_ent_array = np.zeros((num_labels, 2))
+	
+	for i, cal_labels in enumerate(cal_labels_list):
+		ent_joint, ent_total, r_array = optimizeEntropyTwoPointCartesian(title, n=n, dim=dim, traces=traces, points=points, labels=labels, cal_labels=cal_labels, bw_list=bw_list, seed=seed, verbose=verbose, drawPlot=False)
+		r_array_array[i,:] = r_array
+		joint_ent_array[i,:] = np.array(ent_joint)
+		total_ent_array[i,:] = np.array(ent_total)
 
+	filename = "./pca_data/" + title.replace(" ", "_")
+	ext = "_0.csv"
+	filename_ext = filename + "_r_values" + ext
+	i = 1
+	while os.path.exists(filename_ext):
+		print("File exists, distinguishing copies.")
+		ext = "_{}.csv".format(i)
+		filename_ext = filename + "_r_values" + ext
+		i+=1
+
+	np.savetxt(filename + "_cal_labels" + ext, cal_labels_list, delimiter=",")
+	np.savetxt(filename + "_r_values" + ext, r_array_array, delimiter=",")
+	np.savetxt(filename + "_joint_ent" + ext, joint_ent_array, delimiter=",")
+	np.savetxt(filename + "_total_ent" + ext, total_ent_array, delimiter=",")
 
 def optimizeEntropyTwoPointNSphere_bestComps(title, n=10, dim=15, traces=None, points=None, labels=None, e_labels=[0,1], npeaks=2, bw_list=7*[0.15], seed=1234, verbose=False, drawPlot=True):
 	if (points is None) or (labels is None):
@@ -1411,6 +1497,8 @@ def plotDistribution(energies, labels, title="", bw_list=7*[0.1], drawPlot=False
 
 	energies_transformed = s(energies)
 	bin_width = 0.025
+
+	r_array = []
 	for i, e in enumerate(e_peaks):
 		histdata = energies_transformed[labels==i]
 
@@ -1419,9 +1507,12 @@ def plotDistribution(energies, labels, title="", bw_list=7*[0.1], drawPlot=False
 		kde_x, kde_y = hist.resolveSinglePeak(data=histdata, bw=bw_list[i])
 		fwhm, fwhm_h, fwhm_l, fwhm_r = hist.fwhmFromPeak(kde_x, kde_y)	
 
+		r_value = e_peaks[i]/fwhm
+		r_array.append(r_value)
+
 		n, _, _ = ax.hist(histdata, color=cycle[i], alpha=0.5, bins=bins)
 		area = bin_width * sum(n)
-		ax.plot(kde_x, area * kde_y, color=cycle[i], lw=2, label="R: {}, BW: {}".format(round(e_peaks[i]/fwhm,2), bw_list[i]))
+		ax.plot(kde_x, area * kde_y, color=cycle[i], lw=2, label="R: {}, BW: {}".format(round(r_value,2), bw_list[i]))
 		ax.axvline(x=np.median(histdata), color=cycle[i], lw=2)
 		ax.axvline(x=e, lw=2, color="black", linestyle="dashed")
 	#ax.hist(histdata, stacked=True, bins=100)
@@ -1454,6 +1545,8 @@ def plotDistribution(energies, labels, title="", bw_list=7*[0.1], drawPlot=False
 	
 	if drawPlot:
 		plt.show()
+
+	return np.array(r_array)
 
 	#plot2DScatter_labeled(traces=traces_twopoint, labels=labels_twopoint)
 
