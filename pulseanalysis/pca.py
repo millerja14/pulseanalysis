@@ -222,28 +222,40 @@ def plot2DScatter(traces=None, basis=None, drawPlot=False):
 
 	# same methods as in plot3DScatter()
 
-	nPoints = traces.shape[0]
-	traceAvg = np.mean(traces, axis=0)
-	B = traces - np.tile(traceAvg, (nPoints,1))
+	#nPoints = traces.shape[0]
+	#traceAvg = np.mean(traces, axis=0)
+	#B = traces - np.tile(traceAvg, (nPoints,1))
 
-	VT = basis
+	#VT = basis
 
-	points = np.zeros(shape=(nPoints, 2))
+	#points = np.zeros(shape=(nPoints, 2))
 
-	for j in range(B.shape[0]):
-		x = VT[0,:] @ B[j,:].T
-		y = VT[1,:] @ B[j,:].T
-		points[j,:] = [x,y]	
+	points, labels = generateScatter_labeled(2, traces=traces, basis=basis)
+
+	#for j in range(B.shape[0]):
+	#	x = VT[0,:] @ B[j,:].T
+	#	y = VT[1,:] @ B[j,:].T
+	#	points[j,:] = [x,y]	
 
 	if drawPlot:
+
+		opt, fwhm_list = optimizeEntropyNSphere(dim=2, points=points, labels=labels)
+		direction = nSphereToCartesian(opt.x)
+		print("Direction: ", direction)
+	
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 
-		ax.scatter(points[:,0], points[:,1], marker='x', color='b')	
-	
-		ax.set_title("PCA of Fe55 Data")
-		ax.set_xlabel("PC1")
-		ax.set_ylabel("PC2")
+		ax.scatter(points[:,0], points[:,1], marker='.', color='b', alpha=0.3)	
+		ax.arrow(0, 0, direction[0], direction[1], width=0.1, label="Direction of Changing Energy")	
+		
+		ax.set_title("Two Dimensional PCA of Iron-55 Data")
+		ax.set_xlabel("Component #1 Projection")
+		ax.set_ylabel("Component #2 Projection")
+
+		ax.legend(loc="upper right")
+
+		fig.set_size_inches(10.8, 10.8)
 
 		plt.show()
 
