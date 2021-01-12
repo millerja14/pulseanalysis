@@ -14,6 +14,8 @@ def loadTraces(direct=directory):
 	'''
 	
 	loop = mc.Loop.from_pickle(direct + "/analysis/loop_combined.p")
+	loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')	
+
 	ptraces = loop.pulses[0].p_trace
 	dtraces = loop.pulses[0].d_trace	
 	#traces = ptraces
@@ -51,7 +53,10 @@ def loadTraces(direct=directory):
 
 	toRemove = np.union1d(outliers, outliers_extra_peaks)
 
-	traces = np.delete(traces, toRemove, axis=0)	
+	traces = np.delete(traces, toRemove, axis=0)
+
+	print("N = {} traces".format(traces.shape[0]))
+	print("M = {} samples".format(traces.shape[1]))
 
 	return traces
 
