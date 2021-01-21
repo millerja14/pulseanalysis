@@ -246,14 +246,15 @@ def plot2DScatter(traces=None, basis=None, drawPlot=False):
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 
-		ax.scatter(points[:,0], points[:,1], marker='.', color='b', alpha=0.3)	
-		ax.arrow(0, 0, direction[0], direction[1], width=0.1, label="Direction of Changing Energy")	
-		
-		ax.set_title("Two Dimensional PCA of Iron-55 Data")
-		ax.set_xlabel("Component #1 Projection")
-		ax.set_ylabel("Component #2 Projection")
+		ax.scatter(points[:,0], points[:,1], marker='.', alpha=0.25)	
+		ax.arrow(0, 0, direction[0], direction[1], width=0.1, color="black", label=r'Direction of Changing Energy $\mathbf{\hat{d}}$')	
+		ax.text(-1, -0.5, r'Direction of Changing Energy ($\mathbf{\hat{d}}$)', color="black")		
 
-		ax.legend(loc="upper right")
+		#ax.set_title("Two Dimensional PCA of Iron-55 Data")
+		ax.set_xlabel(r'Component #1 Projection ($\mathbf{u_1} \cdot \mathbf{x_i}$)')
+		ax.set_ylabel(r'Component #2 Projection ($\mathbf{u_2} \cdot \mathbf{x_i}$)')
+
+		#ax.legend(loc="upper right")
 
 		fig.set_size_inches(10.8, 10.8)
 
