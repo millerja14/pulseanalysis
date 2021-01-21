@@ -1215,28 +1215,19 @@ def plotNDOptimization_cartesian(n=5, points=None, labels=None, seed=1234, verbo
 	
 	if drawPlot:
 		fig = plt.figure()
-		ax_fwhm = fig.add_subplot(121)
-		ax_ent = fig.add_subplot(122)
+		ax_fwhm = fig.add_subplot(111)
 	
-		ax_fwhm.plot(dim_list, first_fwhm_list, marker='x', label="Peak #1")
-		ax_fwhm.plot(dim_list, second_fwhm_list, marker='x', label="Peak #2")
-		ax_fwhm.set_title("Energy Resolution")
+		ax_fwhm.plot(dim_list, first_fwhm_list, marker=None, label="Peak at 5.9 keV", lw=3)
+		ax_fwhm.plot(dim_list, second_fwhm_list, marker=None, label="Peak at 6.5 keV", lw=3)
+		ax_fwhm.set_title("Energy Resolution with Dimension")
 		ax_fwhm.set_xlabel("PCA Dimension")
 		ax_fwhm.set_ylabel("FWHM [eV]")
-		ax_fwhm.set_ylim(40, 130)
+		ax_fwhm.set_ylim(0, 130)
 		ax_fwhm.legend(loc='upper right')
-
-		ax_ent.plot(dim_list, entropy_list, marker='x')
-		ax_ent.set_title("Minimum Entropy")
-		ax_ent.set_xlabel("PCA Dimension")
-		ax_ent.set_ylabel("Entropy")
-		ax_ent.set_ylim(2.7, 3.6)
-
-		fig.suptitle("PCA with Phase and Dissipation")
 	
 		plt.show()
 
-	return dim_list, entropy_list
+	return dim_list, entropy_list, first_fwhm_list, second_fwhm_list
 
 def plotNDOptimization(n=5, traces=None, seed=1234, drawPlot=True):
 	if n<2:
@@ -1252,8 +1243,8 @@ def plotNDOptimization(n=5, traces=None, seed=1234, drawPlot=True):
 	first_fwhm_list = []
 	second_fwhm_list = []
 
-	for i in range(n-2):
-		dim =i+3
+	for i in range(n-1):
+		dim =i+2
 		print("Optimizing in {}D".format(dim))
 		points, labels = generateScatter_labeled(dim, traces)
 		opt, fwhm = optimizeEntropyNSphere(dim=dim, points=points, labels=labels, seed=seed)
@@ -1284,7 +1275,7 @@ def plotNDOptimization(n=5, traces=None, seed=1234, drawPlot=True):
 
 		plt.show()
 
-	return dim_list, entropy_list
+	return dim_list, entropy_list, first_fwhm_list, second_fwhm_list
 
 def plotNDOptimization_best(n=5, drawPlot=True):
 	if not os.path.isfile(db_path):
@@ -1333,22 +1324,30 @@ def plotNDOptimization_best(n=5, drawPlot=True):
 
 		plt.show()
 	
-	return dim_list, entropy_list
+	return dim_list, entropy_list, first_fwhm_list, second_fwhm_list
 
-def plotNDOptimization_compare(n=5):
-	dim_list_cart, entropy_list_cart = plotNDOptimization_cartesian(n=n, drawPlot=False)
-	dim_list_best, entropy_list_best = plotNDOptimization_best(n=n, drawPlot=False)
+def plotNDOptimization_compare(n1=3, n2=80):
+	dim_list_cart, entropy_list_cart, first_fwhm_list_cart, second_fwhm_list_cart = plotNDOptimization_cartesian(n=n2, drawPlot=False)
+	dim_list_sphere, entropy_list_sphere, first_fwhm_list_sphere, second_fwhm_list_sphere = plotNDOptimization(n=n1, drawPlot=False)
+
+	print(first_fwhm_list_cart)
+	print(second_fwhm_list_cart)
+	print(first_fwhm_list_sphere)
+	print(second_fwhm_list_sphere)
 
 	fig = plt.figure()
-	ax_ent = fig.add_subplot(111)
+	ax_fwhm = fig.add_subplot(111)
 
-	ax_ent.plot(dim_list_cart, entropy_list_cart, marker='x', label="Cartesian Results")
-	ax_ent.plot(dim_list_best, entropy_list_best, marker='x', label="Best Results")
-	ax_ent.set_title("Minimum Entropy")
-	ax_ent.set_xlabel("PCA Dimension")
-	ax_ent.set_ylabel("Entropy")
+	ax_fwhm.plot(dim_list_cart, first_fwhm_list_cart, marker=None, lw=3, label="N 1-D at 5.9 keV")
+	ax_fwhm.plot(dim_list_cart, second_fwhm_list_cart, marker=None, lw=3, label="N 1-D at 6.5 keV")
+	ax_fwhm.plot(dim_list_sphere, first_fwhm_list_sphere, marker=None, lw=3, label="N-D at 5.9 keV")
+	ax_fwhm.plot(dim_list_sphere, second_fwhm_list_sphere, marker=None, lw=3, label="N-D at 6.5 keV")
+	ax_fwhm.set_xlabel("PCA Dimension")
+	ax_fwhm.set_ylabel("FWHM [eV]")
+	ax_fwhm.set_ylim(0, 130)
+	ax_fwhm.set_xlim(0, n2)
 
-	ax_ent.legend(loc='upper right')
+	ax_fwhm.legend(loc='upper right')
 
 	plt.show()
 
