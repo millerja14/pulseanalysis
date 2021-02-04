@@ -716,11 +716,12 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.
 		ax.vlines(loc2, 0, ratio0*peak2, linestyles='dashed')
 		ax.vlines(loc3, 0, ratio1*peak3, linestyles='dashed')
 
-		ax.set_ylim(ymin=0)
+		ax.set_ylim(0, 700)
+		ax.set_xlim(5700, 6600)
 		ax.legend(loc='upper right')
-		ax.set_xlabel("Energy [eV]")
-		ax.set_ylabel("Counts")
-		ax.set_title(r"${}^{55}$" + "Fe Energy Spectrum")
+		ax.set_xlabel("energy [eV]")
+		ax.set_ylabel("counts")
+		#ax.set_title(r"${}^{55}$" + "Fe Energy Spectrum")
 
 		plt.show()
 

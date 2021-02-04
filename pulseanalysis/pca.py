@@ -15,8 +15,11 @@ import matplotlib.pyplot as plt
 mpl.rcParams['font.size'] = 22
 mpl.rcParams['lines.linewidth'] = 1.0
 mpl.rcParams['axes.labelpad'] = 6.0
+mpl.rcParams['mathtext.fontset'] = 'cm'
+mpl.rcParams['font.family'] = 'STIXGeneral'
 import matplotlib.gridspec as gridspec
 import matplotlib.animation as animation
+import matplotlib.patheffects as pe
 
 import scipy.optimize as optimize
 import scipy.spatial.transform as transform
@@ -247,12 +250,12 @@ def plot2DScatter(traces=None, basis=None, drawPlot=False):
 		ax = fig.add_subplot(111)
 
 		ax.scatter(points[:,0], points[:,1], marker='.', alpha=0.25)	
-		ax.arrow(0, 0, direction[0], direction[1], width=0.1, color="black", label=r'Direction of Changing Energy $\mathbf{\hat{d}}$')	
-		ax.text(-1, -0.5, r'Direction of Changing Energy ($\mathbf{\hat{d}}$)', color="black")		
+		ax.arrow(0, 0, direction[0], direction[1], width=0.1, color="black")	
+		ax.text(1.25, 0, r'$\mathbf{\widehat{d}}$', color="black")		
 
 		#ax.set_title("Two Dimensional PCA of Iron-55 Data")
-		ax.set_xlabel(r'Component #1 Projection ($\mathbf{u_1} \cdot \mathbf{x_i}$)')
-		ax.set_ylabel(r'Component #2 Projection ($\mathbf{u_2} \cdot \mathbf{x_i}$)')
+		ax.set_xlabel(r'component #1 projection ($\mathbf{u}_1 \cdot \mathbf{\tilde{x}}_i$)')
+		ax.set_ylabel(r'component #2 projection ($\mathbf{u}_2 \cdot \mathbf{\tilde{x}}_i$)')
 
 		#ax.legend(loc="upper right")
 
@@ -1178,7 +1181,7 @@ def getEnergiesCartesian(n=30, dim=80, traces=None, points=None, lables=None, np
 	return energies
 	
 
-def plotNDOptimization_cartesian(n=5, points=None, labels=None, seed=1234, verbose=False, drawPlot=True):
+def plotNDOptimization_cartesian(n=5, traces=None, points=None, labels=None, seed=1234, verbose=False, drawPlot=True):
 	
 	'''
 	Plot entropy and fwhm for the first n dimensions of principal component space. Uses recursive optimization
@@ -1193,9 +1196,10 @@ def plotNDOptimization_cartesian(n=5, points=None, labels=None, seed=1234, verbo
 	dim = n
 
 	if (points is None) or (labels is None):
-		print("No labeled points given")
-		print("Extracting traces from file...")
-		traces = mkid.loadTraces()
+		if traces is None:
+			print("No labeled points given")
+			print("Extracting traces from file...")
+			traces = mkid.loadTraces()
 		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
 		points, labels = generateScatter_labeled(dim=dim, traces=traces)
 	
@@ -1327,36 +1331,48 @@ def plotNDOptimization_best(n=5, drawPlot=True):
 	
 	return dim_list, entropy_list, first_fwhm_list, second_fwhm_list
 
-def plotNDOptimization_compare(n1=3, n2=80):
-	dim_list_cart, entropy_list_cart, first_fwhm_list_cart, second_fwhm_list_cart = plotNDOptimization_cartesian(n=n2, drawPlot=False)
-	dim_list_sphere, entropy_list_sphere, first_fwhm_list_sphere, second_fwhm_list_sphere = plotNDOptimization(n=n1, drawPlot=False)
+def plotNDOptimization_compare(n1=3, n2=80, traces=None, seed=1234, verbose=False, drawPlot=True):
 
-	print(first_fwhm_list_cart)
-	print(second_fwhm_list_cart)
-	print(first_fwhm_list_sphere)
-	print(second_fwhm_list_sphere)
+	if traces is None:
+		print("plotNDOptimization_compare(): No traces given, getting default traces...")
+		traces = mkid.loadTraces()
+
+	# in 1D
+	points, labels = generateScatter_labeled(1, traces=traces)
+	data = distToEV_withLabels(points.flatten(), labels)
+	fwhm_list_1d, _ = hist.getFWHM(data, drawPlot=False)
+
+	dim_list_cart, entropy_list_cart, first_fwhm_list_cart, second_fwhm_list_cart = plotNDOptimization_cartesian(n=n2, traces=traces, seed=seed, drawPlot=False)
+	dim_list_sphere, entropy_list_sphere, first_fwhm_list_sphere, second_fwhm_list_sphere = plotNDOptimization(n=n1, traces=traces, seed=seed, drawPlot=False)
+
+	#print(first_fwhm_list_cart)
+	#print(second_fwhm_list_cart)
+	#print(first_fwhm_list_sphere)
+	#print(second_fwhm_list_sphere)
 
 	fig = plt.figure()
 	ax_fwhm = fig.add_subplot(111)
 
-	ax_fwhm.plot(dim_list_cart, first_fwhm_list_cart, marker=None, lw=3, label="N 1-D at 5.9 keV")
-	ax_fwhm.plot(dim_list_cart, second_fwhm_list_cart, marker=None, lw=3, label="N 1-D at 6.5 keV")
-	ax_fwhm.plot(dim_list_sphere, first_fwhm_list_sphere, marker=None, lw=3, label="N-D at 5.9 keV")
-	ax_fwhm.plot(dim_list_sphere, second_fwhm_list_sphere, marker=None, lw=3, label="N-D at 6.5 keV")
+	ax_fwhm.plot([1, *dim_list_cart], [fwhm_list_1d[0], *first_fwhm_list_cart], marker=None, lw=5, ls="solid", color="C0", label="Recursive Optimization at 5.9 keV")
+	ax_fwhm.plot([1, *dim_list_sphere], [fwhm_list_1d[0], *first_fwhm_list_sphere], marker=None, lw=2, linestyle="dashed", color="C0", path_effects=[pe.Stroke(linewidth=5, foreground="k"), pe.Normal()], label="Full Optimization at 5.9 keV")
+	ax_fwhm.plot([1, *dim_list_cart], [fwhm_list_1d[1], *second_fwhm_list_cart], marker=None, lw=5, ls="solid", color="C1", label="Recursive Optimization at 6.5 keV")
+	ax_fwhm.plot([1, *dim_list_sphere], [fwhm_list_1d[1], *second_fwhm_list_sphere], marker=None, lw=2, ls="dashed", color="C1", path_effects=[pe.Stroke(linewidth=5, foreground="k"), pe.Normal()], label="Full Optimization at 6.5 keV")
 	ax_fwhm.set_xlabel("PCA Dimension")
 	ax_fwhm.set_ylabel("FWHM [eV]")
-	ax_fwhm.set_ylim(0, 130)
-	ax_fwhm.set_xlim(0, n2)
+	ax_fwhm.set_ylim(1, 215)
+	ax_fwhm.set_xlim(0, n2+1)
 
 	ax_fwhm.legend(loc='upper right')
 
-	plt.show()
+	fig.set_size_inches(19.2, 10.8)
+
+	plt.savefig("./dim_compare.png")
 
 def getImpactfulComponents_cartesian(n=5, dim=10, points=None, labels=None, seed=1234):
 	if n>dim:
 		raise ValueError("Number of components requested must be lower than dimension.")
 
-	dim_list, entropy_list = plotNDOptimization_cartesian(n=dim, points=points, labels=labels, seed=seed, drawPlot=False)
+	dim_list, entropy_list, _, _ = plotNDOptimization_cartesian(n=dim, points=points, labels=labels, seed=seed, drawPlot=False)
 
 	delta_entropy_list = np.ediff1d(entropy_list)
 	indices = np.argsort(delta_entropy_list)

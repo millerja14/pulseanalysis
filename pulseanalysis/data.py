@@ -86,6 +86,7 @@ def loadTraces_split(s=0.5, seed=None, direct=directory):
 def plotTrace_phase(pulse=None):
 	if not hasattr(pulse, 'p_trace'):
 		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
+		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')		
 		pulse = loop.pulses[0]
 		trace = pulse.p_trace[0]
 		rate = pulse.sample_rate
@@ -101,9 +102,44 @@ def plotTrace_phase(pulse=None):
 
 	plt.show()
 
+def plotTrace_both(pulse=None):
+	if not (hasattr(pulse, 'p_trace') and hasattr(pulse, 'd_trace')):
+		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
+		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')
+		pulse = loop.pulses[0]
+		p_trace = pulse.p_trace[1]
+		d_trace = pulse.d_trace[1]
+		rate = pulse.sample_rate
+
+	y_min = -3.5
+	y_max = 0.5
+
+	x_p = np.arange(0, p_trace.size) * (1/rate) * (10**3)
+	x_d = np.arange(0, d_trace.size) * (1/rate) * (10**3)
+
+	fig = plt.figure()
+	fig.subplots_adjust(wspace=0.4)
+	
+	ax_p = fig.add_subplot(121)
+	ax_p.plot(x_p, p_trace)
+	ax_p.set_xlabel("time [ms]")
+	ax_p.set_ylabel("phase shift [radians]")
+	ax_p.set_ylim(y_min, y_max)
+
+	ax_d = fig.add_subplot(122)
+	ax_d.plot(x_d, d_trace)
+	ax_d.set_xlabel("time [ms]")
+	ax_d.set_ylabel("dissipation [radians]")
+	ax_d.set_ylim(y_min, y_max)
+
+	fig.set_size_inches(19.2, 8.1)
+
+	plt.show()
+
 def plotTrace_combined(pulse=None):
 	if not(hasattr(pulse, 'p_trace') and hasattr(pulse, 'd_trace')):
 		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
+		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')
 		pulse = loop.pulses[0]
 		p_trace = pulse.p_trace[1]
 		d_trace = pulse.d_trace[1]
