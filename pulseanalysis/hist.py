@@ -34,16 +34,16 @@ def S21(f, fr, Qc=2*10**5, Qi=2*10**5):
         return 20*np.log10(abs(S))
 
 def transfer(f, L):
-	
+
 	if f == 0:
 		return np.pi/2
-	
+
 	w = 2*np.pi*f
 
 	R = 10**2
 	C1 = 10**-3
 	C2 = 10**-7
-	
+
 	IR = R
 	#IC1 = 1 / (1j*w*C1)
 	IC1 = 0
@@ -87,7 +87,7 @@ def readoutAnimation(samples=1000):
 	fr1 = 5
 	f_spread = 0.001/2
 	fr2 = fr1 - f_spread/8
-	
+
 	f_array = np.linspace(fr1-f_spread, fr1+f_spread, samples)
 	s1_array = S21(f_array, fr1, Qc=1*10**5, Qi=1*10**5)
 	s2_array = 0.5 * S21(f_array, fr2, Qc=4*10**4, Qi=4*10**4)
@@ -105,7 +105,7 @@ def readoutAnimation(samples=1000):
 	ax.plot(f_array, s1_array, lw=3, label="before incidence")
 	ax.plot(f_array, s2_array, linestyle='dashed', lw=3, label="on incidence")
 	ax.axvline(x=fr1, color="black", lw=2)
-	ax.axvline(x=fr2, color="black", linestyle="dashed", lw=2) 
+	ax.axvline(x=fr2, color="black", linestyle="dashed", lw=2)
 	ax.axhline(y=f1(fr1), xmin=0.6, xmax=0.8, color="black", lw=2)
 	ax.axhline(y=f2(fr1), xmin=0.6, xmax=0.8, color="black", lw=2)
 	ax.set_ylabel("Power [dB]")
@@ -123,7 +123,7 @@ def plotDetectorResponse(samples=1000):
 	fr1 = 5
 	f_spread = 0.001/2
 	fr2 = fr1 - f_spread/8
-	
+
 	f_array = np.linspace(fr1-f_spread, fr1+f_spread, samples)
 	s1_array = S21(f_array, fr1, Qc=1*10**5, Qi=1*10**5)
 	s2_array = 0.5 * S21(f_array, fr2, Qc=4*10**4, Qi=4*10**4)
@@ -139,7 +139,7 @@ def plotDetectorResponse(samples=1000):
 	ax1.plot(f_array, s1_array, lw=3, label="before incidence")
 	ax1.plot(f_array, s2_array, linestyle='dashed', lw=3, label="on incidence")
 	ax1.axvline(x=fr1, color="black", lw=2)
-	ax1.axvline(x=fr2, color="black", linestyle="dashed", lw=2) 
+	ax1.axvline(x=fr2, color="black", linestyle="dashed", lw=2)
 	ax1.axhline(y=f1(fr1), xmin=0.5, xmax=0.8, color="gray", lw=2)
 	ax1.axhline(y=f2(fr1), xmin=0.5, xmax=0.8, color="gray", lw=2)
 	ax1.set_ylabel("Power [dB]")
@@ -179,13 +179,13 @@ def fe55_distribution(x_array, fwhm, x_peaks=[loc1, loc2, loc3], y_peaks=[A, B, 
 
 	x_peaks = np.array(x_peaks)
 	y_peaks = np.array(y_peaks)
-	
-	y_peaks_rel = y_peaks/(np.sum(y_peaks))	
+
+	y_peaks_rel = y_peaks/(np.sum(y_peaks))
 
 	fx_array = np.zeros_like(x_array)
 	for loc, height in zip(x_peaks, y_peaks_rel):
 		fx_array += height * stats.norm.pdf(x_array, loc, sigma)
-	
+
 	return fx_array
 
 def fe55_distribution_animate(fwhm_min, fwhm_max, xmin=5800, xmax=6600, samples=3000):
@@ -199,7 +199,7 @@ def fe55_distribution_animate(fwhm_min, fwhm_max, xmin=5800, xmax=6600, samples=
 	line, = ax.plot([], [], lw=3)
 	x_array = np.linspace(xmin, xmax, samples)
 	x_array = np.append(x_array, [loc1, loc2, loc3])
-	x_array = np.sort(x_array)	
+	x_array = np.sort(x_array)
 
 	def init():
 		line.set_data([], [])
@@ -223,7 +223,7 @@ def fe55_distribution_animate(fwhm_min, fwhm_max, xmin=5800, xmax=6600, samples=
 	dsteps = dsteps_up
 
 	anim = animation.FuncAnimation(fig, animate, init_func=init, frames=dsteps, interval=100, blit=True, repeat=False)
-	
+
 	writer = animation.PillowWriter(fps=30)
 	anim.save("./fe55spectrum.gif", writer=writer, dpi=50)
 
@@ -231,11 +231,11 @@ def fe55_distribution_animate(fwhm_min, fwhm_max, xmin=5800, xmax=6600, samples=
 #traces = loop.pulses[0].p_trace
 
 def benchmarkEnergies(traces=None):
-	
+
 	if not isinstance(traces, (np.ndarray)):
 		print("benchmarkEnergies(): No traces given, getting default traces...")
 		traces = mkid.loadTraces()
-	
+
 	# calculate pulse energies here
 	values = np.sum((traces - np.median(traces, axis=1, keepdims=True)), axis=1)
 
@@ -255,12 +255,12 @@ def getDoublePeak_fe55(data, drawPlot=False):
 		ax.set_ylabel("Counts")
 		ax.set_title("Fe55 5.9 keV Double Peak")
 		plt.show()
-	
+
 	return doublepeak
 
 
 def resolveDoublePeak(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=2, bw=None, drawPlot=False):
-	
+
 	if data is None:
 		data = getDoublePeak_fe55(benchmarkEnergies())
 		cutoff = getCutoffs(data, 2)
@@ -269,7 +269,7 @@ def resolveDoublePeak(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=2, bw=None, d
 	kernel = stats.gaussian_kde(data)
 	if bw is not None:
 		kernel.set_bandwidth(bw_method=bw)
-	bw = kernel.factor	
+	bw = kernel.factor
 
 	total = A+B
 	A = A/total
@@ -286,13 +286,13 @@ def resolveDoublePeak(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=2, bw=None, d
 	for i in range(loops):
 		start = np.amin(data)
 		stop = np.amax(data)
-		step = abs(dx)	
+		step = abs(dx)
 		start = start + i*(step/loops)
 
 		x_g = np.arange(start, stop, step)
 		g_array = kernel(x_g)
-		N = g_array.size - 1	
-	
+		N = g_array.size - 1
+
 		x_f_1 = np.arange(start-x1, stop-x1, 2*step)
 		x_f_2 = np.arange(start-x0, stop-x0, 2*step)
 		x_f = np.empty((x_f_1.size + x_f_2.size), dtype=x_f_1.dtype)
@@ -307,8 +307,8 @@ def resolveDoublePeak(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=2, bw=None, d
 			N = M-2
 		elif M > N+2:
 			x_f = x_f[:N+2]
-	
-	
+
+
 		matrix = np.zeros((N+1, N+2))
 		for i in range(N+1):
 			matrix[i,i] = B
@@ -379,14 +379,14 @@ def fwhmFromPeak(xvalues, yvalues):
 	peak_idx = np.take(peak_indices, [idx])[0]
 	prominence = np.take(prominences, [idx])[0]
 	height = np.take(heights, [idx])[0]
-	
+
 	halfmax_adj = 1-(((0.5*height)-(height-prominence))/prominence)
 
 	width_data = peak_widths(yvalues, np.array([peak_indices[idx]]), rel_height=halfmax_adj)
 	width_indices = np.rint(np.concatenate((width_data[2], width_data[3]))).astype(int)
 	bounds = np.take(xvalues, width_indices)
 	fwhm = abs(bounds[1]-bounds[0])
-	
+
 	return fwhm, width_data[1], bounds[0], bounds[1]
 
 def distToEV(values, peaks=e_peaks, drawPlot=False):
@@ -404,9 +404,9 @@ def distToEV(values, peaks=e_peaks, drawPlot=False):
 	else:
 		e_scale = -e_scale
 		e_first = e_peaks[1] - (median0 * e_scale)
-	
+
 	energies = values*e_scale + e_first
-	
+
 	return energies
 
 def distToEV_kde(values, peaks=e_peaks, drawPlot=False):
@@ -433,8 +433,8 @@ def distToEV_kde(values, peaks=e_peaks, drawPlot=False):
 
 	# conversions from value space to energy space
 	e_scale = np.abs((e_peaks[1] - e_peaks[0])/(value_space[peak_indices[0]] - value_space[peak_indices[1]]))
-	
-	
+
+
 	if heights[0] > heights[1]:
 		e_first = e_peaks[0] - (value_space[peak_indices[0]] * e_scale)
 	else:
@@ -455,7 +455,7 @@ def distToEV_kde(values, peaks=e_peaks, drawPlot=False):
 	return energies
 
 def distToEV_split(values, peaks=e_peaks, bw_list=[.15,.2], samples=10000):
-	
+
 	cutoff = getCutoffs(values, 2)
 	values0 = values[values<cutoff]
 	values1 = values[values>=cutoff]
@@ -474,8 +474,8 @@ def distToEV_split(values, peaks=e_peaks, bw_list=[.15,.2], samples=10000):
 
 	# conversions from value space to energy space
 	e_scale = np.abs((e_peaks[1] - e_peaks[0])/(max1 - max0))
-	
-	
+
+
 	if height0 > height1:
 		e_first = e_peaks[0] - (max1 * e_scale)
 	else:
@@ -487,23 +487,23 @@ def distToEV_split(values, peaks=e_peaks, bw_list=[.15,.2], samples=10000):
 	return energies
 
 def testBW(data, desc=""):
-	
+
 	scale = 1
 
 	x = np.linspace(np.amin(data), np.amax(data), 1000)
 	kernel = stats.gaussian_kde(data)
 	bw_scott = kernel.factor
-	print("Scott BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))	
+	print("Scott BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))
 
 	dist1 = scale*kernel(x)
-	
+
 	kernel.set_bandwidth(bw_method='silverman')
-	bw_silverman = kernel.factor	
-	print("Silverman BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))	
+	bw_silverman = kernel.factor
+	print("Silverman BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))
 	dist2 = scale*kernel(x)
 
 	kernel.set_bandwidth(bw_method=.05)
-	print("Const BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))	
+	print("Const BW: {} Peaks: {}".format(kernel.factor, find_peaks(kernel(x))[0].size))
 	dist3 = scale*kernel(x)
 
 	kernel.set_bandwidth(bw_method=.1)
@@ -528,15 +528,15 @@ def testBW(data, desc=""):
 	ax.plot(x, dist5, label='Const .15', linestyle='dashed', linewidth=2)
 	ax.plot(x, dist6, label='Const .30', linestyle='dashed', linewidth=2)
 	ax.legend()
-	
+
 	title = "BW Comparison"
 	if not desc == "":
 		title = title + ": " + desc
-	
+
 	ax.set_title(title)
-	
+
 	plt.show()
-	
+
 def getFWHM(data, npeaks=None, bw=None, samples=1000, desc="", xlabel="", drawPlot=False):
 	'''
 	Takes in distribution data, number of samples used to resolve the fit, and
@@ -555,7 +555,7 @@ def getFWHM(data, npeaks=None, bw=None, samples=1000, desc="", xlabel="", drawPl
 
 	dist = kernel(x)
 	peak_indices, properties = find_peaks(dist, prominence=0, height=0)
-	
+
 	if npeaks is None:
 		npeaks = peak_indices.size
 	elif not isinstance(npeaks, int):
@@ -564,8 +564,8 @@ def getFWHM(data, npeaks=None, bw=None, samples=1000, desc="", xlabel="", drawPl
 		raise ValueError("Number of peaks must be greater than 0.")
 	elif (npeaks > peak_indices.size):
 		print("Can only find {0} peaks in the data, Assuming {0} peaks instead of {1}.".format(peak_indices.size, npeaks))
-		npeaks = peak_indices.size	
-	
+		npeaks = peak_indices.size
+
 	# calculate half-max height as percentage relative to prominence for each peak
 	prominences = properties["prominences"]
 	heights = properties["peak_heights"]
@@ -588,10 +588,10 @@ def getFWHM(data, npeaks=None, bw=None, samples=1000, desc="", xlabel="", drawPl
 	# compute fwhm
 	for i in range(npeaks):
 		widths[:,i] = np.vstack(peak_widths(dist, np.array([peak_indices[i]]), rel_height=halfmax_adj[i]))[:,0]
-	
+
 	# compute variance
 	fwhm = slope*widths[0]
-	
+
 	if drawPlot:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
@@ -615,7 +615,7 @@ def getCutoffs(data, npeaks, samples=1000):
 	kernel = stats.gaussian_kde(data)
 	dist = kernel(x)
 	cutoff_indices, cutoff_properties = find_peaks(-dist, prominence=0)
-	
+
 	# get most prominent minima
 	k = npeaks-1
 	cutoff_prominences = cutoff_properties["prominences"]
@@ -625,194 +625,204 @@ def getCutoffs(data, npeaks, samples=1000):
 	# points at which we will split the data
 	cutoffs = x[cutoff_indices_filtered]
 	cutoffs = np.sort(cutoffs)
-	
+
 	return cutoffs
 
-def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.2], samples=10000, drawPlot=True):
+def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.2], samples=10000):
 
-	total = A+B
-	A = A/total
-	B = B/total
-	
-	if data is None:
-		data = benchmarkEnergies()
+    """
+    Takes in array of energies for Iron-55 data and outputs fitted histogram with FWHM displayed. Left peak data
+    is resolved into two peaks.
+    """
 
-	cutoff = getCutoffs(data, 2)
-	data0 = data[data<cutoff]
-	data1 = data[data>=cutoff]
+    # normalize relative heights
+    total = A+B
+    A = A/total
+    B = B/total
 
-	xdata0, ydata0 = resolveSinglePeak(data0, bw=bw_list[0], samples=samples)
-	width0, width_height0, left_ips0, right_ips0 = fwhmFromPeak(xdata0, ydata0)
+    # load benchmark data if no data is given
+    if data is None:
+    	data = benchmarkEnergies()
 
-	xdata0x, ydata0x = resolveDoublePeak(data0, x0=x0, x1=x1, A=A, B=B, bw=bw_list[0], loops=loops, drawPlot=drawPlot)
-	
-	xdata00 = xdata0x + x0
-	xdata01 = xdata0x + x1
-	ydata00 = A*ydata0x
-	ydata01 = B*ydata0x
+    # split the data into left peak and right peak data
+    cutoff = getCutoffs(data, 2)
+    data0 = data[data<cutoff]
+    data1 = data[data>=cutoff]
 
-	width00, width_height00, left_ips00, right_ips00 = fwhmFromPeak(xdata00, ydata00)
-	width01, width_height01, left_ips01, right_ips01 = fwhmFromPeak(xdata01, ydata01)
+    # resolve left peak as if it is a single peak and compute information
+    xdata0, ydata0 = resolveSinglePeak(data0, bw=bw_list[0], samples=samples)
+    width0, width_height0, left_ips0, right_ips0 = fwhmFromPeak(xdata0, ydata0)
 
-	xdata10, ydata10 = resolveSinglePeak(data1, bw=bw_list[1], samples=samples)
-	width10, width_height10, left_ips10, right_ips10 = fwhmFromPeak(xdata10, ydata10)
+    # resolve double peak template and store as x and y data
+    xdata0x, ydata0x = resolveDoublePeak(data0, x0=x0, x1=x1, A=A, B=B, bw=bw_list[0], loops=loops, drawPlot=False)
 
-	#y_peak00 = np.amax(ydata00)
-	#x_peak00 = np.take(xdata00, np.argsort(ydata00)[-1])
+    # generate data for double peak using double peak template
+    xdata00 = xdata0x + x0
+    xdata01 = xdata0x + x1
+    ydata00 = A*ydata0x
+    ydata01 = B*ydata0x
 
-	#y_peak01 = np.amax(ydata01)
-	#x_peak01 = np.take(xdata01, np.argsort(ydata01)[-1])
-	
-	#y_peak10 = np.amax(ydata10)
-	#x_peak10 = np.take(xdata10, np.argsort(ydata10)[-1])i
-	
-	f0 = interpolate.interp1d(xdata0, ydata0, bounds_error=False, fill_value=0)
-	f00 = interpolate.interp1d(xdata00, ydata00, bounds_error=False, fill_value=0)
-	f01 = interpolate.interp1d(xdata01, ydata01, bounds_error=False, fill_value=0)
-	f10 = interpolate.interp1d(xdata10, ydata10, bounds_error=False, fill_value=0)
+    # compute information on each double peak
+    width00, width_height00, left_ips00, right_ips00 = fwhmFromPeak(xdata00, ydata00)
+    width01, width_height01, left_ips01, right_ips01 = fwhmFromPeak(xdata01, ydata01)
 
-	peak0 = f0(loc0)
-	peak1 = f00(loc1)
-	peak2 = f01(loc2)
-	peak3 = f10(loc3)
+    # resolve right peak and compute information
+    xdata10, ydata10 = resolveSinglePeak(data1, bw=bw_list[1], samples=samples)
+    width10, width_height10, left_ips10, right_ips10 = fwhmFromPeak(xdata10, ydata10)
 
-	xdata_threepeak = np.concatenate((xdata00, xdata01, xdata10))
-	xmin = np.amin(xdata_threepeak)
-	xmax = np.amax(xdata_threepeak)
-	xdata = np.linspace(xmin, xmax, 5*samples)
+    # generate interpolations from each peak's data
+    f0 = interpolate.interp1d(xdata0, ydata0, bounds_error=False, fill_value=0)
+    f00 = interpolate.interp1d(xdata00, ydata00, bounds_error=False, fill_value=0)
+    f01 = interpolate.interp1d(xdata01, ydata01, bounds_error=False, fill_value=0)
+    f10 = interpolate.interp1d(xdata10, ydata10, bounds_error=False, fill_value=0)
 
-	if drawPlot:
-		nbins = 100
+    # compute peak height at each energy location
+    peak0 = f0(loc0)
+    peak1 = f00(loc1)
+    peak2 = f01(loc2)
+    peak3 = f10(loc3)
 
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
-		
-		n, bins, _ = ax.hist(data, bins=nbins, alpha=0.3)
-		bin_width = bins[1] - bins[0]	
-		cutoff_idx = np.searchsorted(bins, cutoff)[0]
-		print("idx: ", cutoff_idx)
-		area0 = bin_width * sum(n[:cutoff_idx])
-		area1 = bin_width * sum(n[cutoff_idx:])
-		area = area0+area1
-		print("integral: ", area)
-		ratio0 = area0
-		ratio1 = area1
-		
-		f = lambda x: ratio0*f00(x) + ratio0*f01(x) + ratio1*f10(x)
-	
-		#ax.plot(xdata0, ratio0*ydata0, label=("FWHM: {:.0f}".format(round(width0))), linewidth=3)	
-		ax.plot(xdata00, ratio0*ydata00, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width00))), linewidth=3)
-		ax.plot(xdata01, ratio0*ydata01, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width01))), linewidth=3)
-		ax.plot(xdata10, ratio1*ydata10, label=(r"$\Delta$" + "E: {:.0f} eV".format(round(width10))), linewidth=3)
-		ax.plot(xdata, f(xdata), label=("total"), linestyle='dashed', linewidth=2)
-		#ax.hlines(ratio0*width_height0, left_ips0, right_ips0)
-		#ax.hlines(ratio0*width_height00, left_ips00, right_ips00)
-		#ax.hlines(ratio0*width_height01, left_ips01, right_ips01)
-		#ax.hlines(ratio1*width_height10, left_ips10, right_ips10)
-		
-		#ax.vlines(e_low, 0, ratio0*f0(e_low), linestyles='dashed')
-		#ax.vlines(loc0, 0, ratio0*peak0, linestyles='dashed')
-		ax.vlines(loc1, 0, ratio0*peak1, linestyles='dashed')
-		ax.vlines(loc2, 0, ratio0*peak2, linestyles='dashed')
-		ax.vlines(loc3, 0, ratio1*peak3, linestyles='dashed')
+    # generate evenly spaced x values covering the domain of the data
+    xdata_threepeak = np.concatenate((xdata00, xdata01, xdata10))
+    xmin = np.amin(xdata_threepeak)
+    xmax = np.amax(xdata_threepeak)
+    xdata = np.linspace(xmin, xmax, 5*samples)
 
-		ax.set_ylim(0, 700)
-		ax.set_xlim(5700, 6600)
-		ax.legend(loc='upper right')
-		ax.set_xlabel("energy [eV]")
-		ax.set_ylabel("counts")
-		#ax.set_title(r"${}^{55}$" + "Fe Energy Spectrum")
+    # number of total bins for histogram
+    nbins = 100
 
-		plt.show()
+    # start plotting
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    n, bins, _ = ax.hist(data, bins=nbins, alpha=0.3)
+
+    # compute areas of the histogram to the left and right of the cutoff
+    # these values are for scaling the fit curve to match the size of the histogram
+    # depending on the bin width of the histogram
+    bin_width = bins[1] - bins[0]
+    cutoff_idx = np.searchsorted(bins, cutoff)[0]
+    area0 = bin_width * sum(n[:cutoff_idx])
+    area1 = bin_width * sum(n[cutoff_idx:])
+    area = area0+area1
+    ratio0 = area0
+    ratio1 = area1
+
+    # function to return total fit
+    f = lambda x: ratio0*f00(x) + ratio0*f01(x) + ratio1*f10(x)
+
+    # plot and label each of three peaks and the total distribution fit
+    ax.plot(xdata00, ratio0*ydata00, label=("FWHM: {:.0f} eV".format(round(width00))), linewidth=1)
+    ax.plot(xdata01, ratio0*ydata01, label=("FWHM: {:.0f} eV".format(round(width01))), linewidth=1)
+    ax.plot(xdata10, ratio1*ydata10, label=("FWHM: {:.0f} eV".format(round(width10))), linewidth=1)
+    ax.plot(xdata, f(xdata), label=("total"), linestyle='dashed', linewidth=1)
+
+    # mark each peak location
+    ax.vlines(loc1, 0, ratio0*peak1, linestyles='dashed')
+    ax.vlines(loc2, 0, ratio0*peak2, linestyles='dashed')
+    ax.vlines(loc3, 0, ratio1*peak3, linestyles='dashed')
+
+    # plot settings
+    ax.set_ylim(0, 700)
+    ax.set_xlim(5800, 6600)
+    ax.legend(loc='upper right')
+    ax.set_xlabel("energy [eV]")
+    ax.set_ylabel("counts")
+    #ax.set_title("Iron-55 Detector Spectrum using PCA in 80D")
+
+    # save plot
+    fig.set_size_inches(3.5, 3.5)
+    plt.savefig("./tkid_results.pdf", bbox_inches='tight')
+    plt.close()
 
 def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc="", xlabel="Energy [eV]",  drawPlot=True):
-	
-	x = np.linspace(np.amin(data), np.amax(data), samples)
-	kernel = stats.gaussian_kde(data)
-	dist = kernel(x)
 
-	peak_indices, peak_properties = find_peaks(dist, height=0)
-	npeaks_total = peak_indices.size
-	
-	# ensure npeaks is valid
-	if npeaks is None:
-		npeaks = npeaks_total
-	elif not isinstance(npeaks, int):
-		raise ValueError("Number of peaks must be an integer value.")
-	elif not npeaks > 0:
-		raise ValueError("Number of peaks  must be greater than 0.")
-	elif (npeaks > npeaks_total):
-		print("Can only find {0} peaks in the data. Assuming {0} peaks instead of {1}.".format(npeaks_total, npeaks))
-		npeaks = npeaks_total
+    x = np.linspace(np.amin(data), np.amax(data), samples)
+    kernel = stats.gaussian_kde(data)
+    dist = kernel(x)
 
-	if bw_list is not None:
-		if not (len(bw_list) == npeaks):
-			raise ValueError("Bandwidth list must match number of peaks.")
+    peak_indices, peak_properties = find_peaks(dist, height=0)
+    npeaks_total = peak_indices.size
 
-	else:
-		bw_list = []
-		for i in range(npeaks):
-			bw_list.append(None)
+    # ensure npeaks is valid
+    if npeaks is None:
+    	npeaks = npeaks_total
+    elif not isinstance(npeaks, int):
+    	raise ValueError("Number of peaks must be an integer value.")
+    elif not npeaks > 0:
+    	raise ValueError("Number of peaks  must be greater than 0.")
+    elif (npeaks > npeaks_total):
+    	print("Can only find {0} peaks in the data. Assuming {0} peaks instead of {1}.".format(npeaks_total, npeaks))
+    	npeaks = npeaks_total
 
-	# get npeaks greatest peak heights
-	peak_heights = peak_properties["peak_heights"]
-	idx = np.sort(np.argsort(peak_heights)[-npeaks:])
-	peak_indices_filtered = np.take(peak_indices, idx)
-	peak_heights_filtered = np.take(peak_heights, idx)
-	rel_peak_heights = peak_heights_filtered/np.sum(peak_heights_filtered)	
+    if bw_list is not None:
+    	if not (len(bw_list) == npeaks):
+    		raise ValueError("Bandwidth list must match number of peaks.")
 
-	# get most prominent minimums
-	cutoffs = getCutoffs(data, npeaks, samples)	
-	cutoffs = np.append(cutoffs, [np.amin(data)-1, np.amax(data)+1])
-	cutoffs = np.sort(cutoffs)
-	# split the data into peaks
-	data_split = []
-	fwhm_list = []
-	dist_list = []
+    else:
+    	bw_list = []
+    	for i in range(npeaks):
+    		bw_list.append(None)
 
-	for i in range(cutoffs.size - 1):
-		data_split.append(data[(data>cutoffs[i]) & (data<=cutoffs[i+1])])
-		fwhm, dist = getFWHM(data_split[i], npeaks=1, bw=bw_list[i], samples=samples, drawPlot=False)
-		fwhm_list.append(fwhm)
-		dist_list.append(dist)
+    # get npeaks greatest peak heights
+    peak_heights = peak_properties["peak_heights"]
+    idx = np.sort(np.argsort(peak_heights)[-npeaks:])
+    peak_indices_filtered = np.take(peak_indices, idx)
+    peak_heights_filtered = np.take(peak_heights, idx)
+    rel_peak_heights = peak_heights_filtered/np.sum(peak_heights_filtered)
 
-	if drawPlot:
-		fig = plt.figure()
-		ax = fig.add_subplot(111)
-		n, bins, _ = ax.hist(data, bins=100, alpha=0.3)
-		bin_width = bins[1] - bins[0]
-		area = sum(n)*bin_width
-		for i, (sdata, dist, height) in enumerate(zip(data_split, dist_list, rel_peak_heights)):
-			x = np.linspace(np.amin(sdata), np.amax(sdata), samples)
-			if bw_list[i] is None:
-				bw_str = "Default"
-			else:
-				bw_str = str(bw_list[i])
-			#ax.plot(x, dist*height, label="BW: " + bw_str + " FWHM: " + str(round(fwhm_list[i].item(),2)))
-			ax.plot(x, dist*height*area, label=r"$\Delta$" + "E: " + str(round(fwhm_list[i].item())) + " eV", linewidth=3)
-			ax.set_ylabel("Counts")
-			if not xlabel=="":
-				ax.set_xlabel(xlabel)
+    # get most prominent minimums
+    cutoffs = getCutoffs(data, npeaks, samples)
+    cutoffs = np.append(cutoffs, [np.amin(data)-1, np.amax(data)+1])
+    cutoffs = np.sort(cutoffs)
+    # split the data into peaks
+    data_split = []
+    fwhm_list = []
+    dist_list = []
 
-			title = r"${}^{55}$" + "Fe Energy Spectrum"
-			if not desc=="":
-				title = title + ": " + desc
-			
-			ax.set_title(title)
+    for i in range(cutoffs.size - 1):
+    	data_split.append(data[(data>cutoffs[i]) & (data<=cutoffs[i+1])])
+    	fwhm, dist = getFWHM(data_split[i], npeaks=1, bw=bw_list[i], samples=samples, drawPlot=False)
+    	fwhm_list.append(fwhm)
+    	dist_list.append(dist)
 
-			#ax.set_xlim(5500, 6800)		
+    if drawPlot:
+    	fig = plt.figure()
+    	ax = fig.add_subplot(111)
+    	n, bins, _ = ax.hist(data, bins=100, alpha=0.3)
+    	bin_width = bins[1] - bins[0]
+    	area = sum(n)*bin_width
+    	for i, (sdata, dist, height) in enumerate(zip(data_split, dist_list, rel_peak_heights)):
+    		x = np.linspace(np.amin(sdata), np.amax(sdata), samples)
+    		if bw_list[i] is None:
+    			bw_str = "Default"
+    		else:
+    			bw_str = str(bw_list[i])
+    		#ax.plot(x, dist*height, label="BW: " + bw_str + " FWHM: " + str(round(fwhm_list[i].item(),2)))
+    		ax.plot(x, dist*height*area, label=r"$\Delta$" + "E: " + str(round(fwhm_list[i].item())) + " eV", linewidth=3)
+    		ax.set_ylabel("Counts")
+    		if not xlabel=="":
+    			ax.set_xlabel(xlabel)
 
-			ax.legend(loc='upper right')
+    		title = r"${}^{55}$" + "Fe Energy Spectrum"
+    		if not desc=="":
+    			title = title + ": " + desc
 
-			
-		plt.show()
+    		ax.set_title(title)
 
-	return np.array(fwhm_list)
+    		#ax.set_xlim(5500, 6800)
+
+    		ax.legend(loc='upper right')
+
+
+    	plt.show()
+
+    return np.array(fwhm_list).flatten()
 
 def compareDist(data1, data2, nbin=300, drawPlot='True'):
 	fwhm1 = getFWHM(data1)
-	fwhm2 = getFWHM(data2)	
-	
+	fwhm2 = getFWHM(data2)
+
 	print("Data1:")
 	print("Estimated FWHM of Peak #1: {:.4f} Units".format(fwhm1[0]))
 	print("Estimated FWHM of Peak #2: {:.4f} Units".format(fwhm1[1]))
@@ -825,7 +835,5 @@ def compareDist(data1, data2, nbin=300, drawPlot='True'):
 	ax.hist(data1, nbin, alpha=0.5, label="FWHMs: [{:.4f}, {:.4f}]".format(*fwhm1))
 	ax.hist(data2, nbin, alpha=0.5, label="FWHMs: [{:.4f}, {:.4f}]".format(*fwhm2))
 	ax.legend(loc='upper right')
-	
-	plt.show()
-	
 
+	plt.show()

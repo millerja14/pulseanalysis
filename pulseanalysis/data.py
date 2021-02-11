@@ -12,12 +12,12 @@ def loadTraces(direct=directory):
 	'''
 	Load pulse tracs from KID data given a data directory.
 	'''
-	
+
 	loop = mc.Loop.from_pickle(direct + "/analysis/loop_combined.p")
-	loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')	
+	loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')
 
 	ptraces = loop.pulses[0].p_trace
-	dtraces = loop.pulses[0].d_trace	
+	dtraces = loop.pulses[0].d_trace
 	#traces = ptraces
 	traces = np.concatenate((ptraces, dtraces), axis=1)
 
@@ -65,10 +65,10 @@ def loadTraces_split(s=0.5, seed=None, direct=directory):
 		return ValueError("S must be between 0 and 1")
 
 	traces = loadTraces(direct=direct)
-	
+
 	num = len(traces)
 	indices = np.arange(num)
-	
+
 	if seed is not None:
 		np.random.seed(seed)
 		np.random.shuffle(indices)
@@ -86,11 +86,11 @@ def loadTraces_split(s=0.5, seed=None, direct=directory):
 def plotTrace_phase(pulse=None):
 	if not hasattr(pulse, 'p_trace'):
 		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
-		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')		
+		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')
 		pulse = loop.pulses[0]
 		trace = pulse.p_trace[0]
 		rate = pulse.sample_rate
-	
+
 	x = np.arange(0, trace.size)*(1/rate)*(10**3)
 
 	fig = plt.figure()
@@ -119,7 +119,7 @@ def plotTrace_both(pulse=None):
 
 	fig = plt.figure()
 	fig.subplots_adjust(wspace=0.4)
-	
+
 	ax_p = fig.add_subplot(121)
 	ax_p.plot(x_p, p_trace)
 	ax_p.set_xlabel("time [ms]")
@@ -132,9 +132,9 @@ def plotTrace_both(pulse=None):
 	ax_d.set_ylabel("dissipation [radians]")
 	ax_d.set_ylim(y_min, y_max)
 
-	fig.set_size_inches(19.2, 8.1)
-
-	plt.show()
+	fig.set_size_inches(7, 3)
+	plt.savefig("./trace.pdf", bbox_inches='tight')
+	plt.close()
 
 def plotTrace_combined(pulse=None):
 	if not(hasattr(pulse, 'p_trace') and hasattr(pulse, 'd_trace')):
@@ -143,7 +143,7 @@ def plotTrace_combined(pulse=None):
 		pulse = loop.pulses[0]
 		p_trace = pulse.p_trace[1]
 		d_trace = pulse.d_trace[1]
-	
+
 	sep = 500
 
 	fig = plt.figure()
@@ -157,5 +157,3 @@ def plotTrace_combined(pulse=None):
 	ax.set_yticklabels([])
 	ax.set_title("Photon Trace")
 	plt.show()
-
-	
