@@ -334,7 +334,7 @@ def resolveDoublePeak(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=2, bw=None, d
 	g_array_full = np.take(g_array_full, g_order)
 	x_g_full = np.take(x_g_full, g_order)
 
-	if drawPlot==True:
+	if drawPlot:
 		fig = plt.figure()
 		ax = fig.add_subplot(111)
 		#ax.hist(data, bins='auto', density=True)
@@ -389,7 +389,7 @@ def fwhmFromPeak(xvalues, yvalues):
 
 	return fwhm, width_data[1], bounds[0], bounds[1]
 
-def distToEV(values, peaks=e_peaks, drawPlot=False):
+def distToEV(values, peaks=e_peaks):
 	cutoff = getCutoffs(values, 2)
 	values0 = values[values<cutoff]
 	values1 = values[values>=cutoff]
@@ -628,7 +628,7 @@ def getCutoffs(data, npeaks, samples=1000):
 
 	return cutoffs
 
-def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.2], samples=10000):
+def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.2], samples=10000, id=""):
 
     """
     Takes in array of energies for Iron-55 data and outputs fitted histogram with FWHM displayed. Left peak data
@@ -712,10 +712,10 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.
     f = lambda x: ratio0*f00(x) + ratio0*f01(x) + ratio1*f10(x)
 
     # plot and label each of three peaks and the total distribution fit
-    ax.plot(xdata00, ratio0*ydata00, label=("FWHM: {:.0f} eV".format(round(width00))), linewidth=1)
-    ax.plot(xdata01, ratio0*ydata01, label=("FWHM: {:.0f} eV".format(round(width01))), linewidth=1)
-    ax.plot(xdata10, ratio1*ydata10, label=("FWHM: {:.0f} eV".format(round(width10))), linewidth=1)
-    ax.plot(xdata, f(xdata), label=("total"), linestyle='dashed', linewidth=1)
+    ax.plot(xdata00, ratio0*ydata00, label=(r"$\Delta$E: {:.0f} eV".format(round(width00))), linewidth=1)
+    ax.plot(xdata01, ratio0*ydata01, label=(r"$\Delta$E: {:.0f} eV".format(round(width01))), linewidth=1)
+    ax.plot(xdata10, ratio1*ydata10, label=(r"$\Delta$E: {:.0f} eV".format(round(width10))), linewidth=1)
+    ax.plot(xdata, f(xdata), label=("total"), linestyle=(0, (2, 1)), linewidth=1)
 
     # mark each peak location
     ax.vlines(loc1, 0, ratio0*peak1, linestyles='dashed')
@@ -724,18 +724,20 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.
 
     # plot settings
     ax.set_ylim(0, 700)
-    ax.set_xlim(5800, 6600)
-    ax.legend(loc='upper right')
+    ax.set_xlim(5750, 6600)
+    ax.legend(loc='upper right', frameon=False)
     ax.set_xlabel("energy [eV]")
     ax.set_ylabel("counts")
     #ax.set_title("Iron-55 Detector Spectrum using PCA in 80D")
 
     # save plot
     fig.set_size_inches(3.5, 3.5)
-    plt.savefig("./tkid_results.pdf", bbox_inches='tight')
+    plt.savefig("./tkid_results{}.pdf".format(id), bbox_inches='tight')
+    plt.savefig("./tkid_results{}.png".format(id), bbox_inches='tight')
+
     plt.close()
 
-def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc="", xlabel="Energy [eV]",  drawPlot=True):
+def getFWHM_separatePeaks(data, npeaks=None, bw_list=[.15,.2], samples=1000, desc="", xlabel="Energy [eV]",  drawPlot=True):
 
     x = np.linspace(np.amin(data), np.amax(data), samples)
     kernel = stats.gaussian_kde(data)
@@ -808,9 +810,9 @@ def getFWHM_separatePeaks(data, npeaks=None, bw_list=None, samples=1000, desc=""
     		if not desc=="":
     			title = title + ": " + desc
 
-    		ax.set_title(title)
+    		#ax.set_title(title)
 
-    		#ax.set_xlim(5500, 6800)
+    		ax.set_xlim(5650, 6650)
 
     		ax.legend(loc='upper right')
 

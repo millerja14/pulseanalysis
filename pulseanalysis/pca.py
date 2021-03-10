@@ -235,7 +235,7 @@ def plot2DScatter(points=None, labels=None):
 
 	ax.scatter(points[:,0], points[:,1], marker='.', alpha=0.15)
 	ax.arrow(0, 0, direction[0], direction[1], width=0.1, color="black")
-	ax.text(1.25, 0, r'$\mathbf{\widehat{d}}$', color="black")
+	ax.text(1.5, 0, r'$\mathbf{\widehat{d}}$', color="black")
 
 	#ax.set_title("Two Dimensional PCA of Iron-55 Data")
 	ax.set_xlabel(r'component #1 projection ($\mathbf{u}_1 \cdot \mathbf{\tilde{x}}_i$)')
@@ -770,6 +770,10 @@ def optimizeEntropyCartesian(n=None, dim=100, traces=None, points=None, labels=N
 	return direction, fwhm_list, comp_list
 
 def getEnergiesCartesian(n=30, dim=80, traces=None, points=None, lables=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=False):
+	"""
+	Use cartesian optimzation to find direction of changing energy and compute energies for each pulse
+	"""
+
 
 	if (points is None) or (labels is None):
 		if traces is None:
@@ -781,11 +785,33 @@ def getEnergiesCartesian(n=30, dim=80, traces=None, points=None, lables=None, np
 
 	direction, fwhm_list, comp_list = optimizeEntropyCartesian(n=n, dim=dim, traces=traces, points=points, labels=labels, npeaks=npeaks, bw_list=bw_list, seed=seed, verbose=verbose, drawPlot=drawPlot)
 
-	print("Points shape: ", points.shape)
 	points_reduced = np.take(points, comp_list-1, axis=1)
-	print("Points reduced shape: ", points_reduced.shape)
 
 	data = projectScatter(direction, points_reduced)
+	energies = hist.distToEV(data)
+
+	# save data
+	np.savez("./energies_cartesian_{}of{}d.npy".format(n, dim), energies)
+
+	return energies
+
+def getEnergiesFull(dim=2, traces=None, points=None, lables=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=False):
+	"""
+	Use cartesian optimzation to find direction of changing energy and compute energies for each pulse
+	"""
+
+	if (points is None) or (labels is None):
+		if traces is None:
+			print("getEnergiesCartesian(): No traces given, getting default traces...")
+			traces = mkid.loadTraces()
+
+		print("Getting PCA decomposition in " + str(dim) + " dimensions...")
+		points, labels = generateScatter_labeled(dim=dim, traces=traces)
+
+	opt, fwhm_list = optimizeEntropyFull(dim=dim, traces=traces, points=points, labels=labels, npeaks=npeaks, bw_list=bw_list, seed=seed, verbose=verbose, drawPlot=drawPlot)
+	direction = nSphereToCartesian(*opt.x)
+
+	data = projectScatter(direction, points)
 	energies = hist.distToEV(data)
 
 	return energies
@@ -1004,17 +1030,18 @@ def plot_componentContribution_compare(componentContribution_results=None):
 	ax_fwhm.scatter(dim_list_sphere, second_fwhm_list_sphere, linestyle="None", marker="o", linewidth=1, s=24, edgecolors="C1", facecolors="none", label="full optimization at 6.5 keV")
 	ax_fwhm.set_xlabel("PCA dimension $K$")
 	ax_fwhm.set_ylabel("FWHM [eV]")
-	ax_fwhm.set_ylim(40, 230)
+	ax_fwhm.set_ylim(0, 230)
 	ax_fwhm.set_xlim(0, len(dim_list_cart)+1)
 
-	ax_fwhm.legend(loc='upper right')
+	ax_fwhm.legend(loc='upper right', frameon=False, handletextpad=0.1)
 
-	ax_fwhm.set_yscale('log')
+	#ax_fwhm.set_yscale('log')
 	ax_fwhm.yaxis.set_minor_formatter(ticker.ScalarFormatter())
 	ax_fwhm.yaxis.set_major_formatter(ticker.ScalarFormatter())
 
 	fig.set_size_inches(7, 3)
 	plt.savefig("./comp_contrib.pdf", bbox_inches='tight')
+	plt.savefig("./comp_contrib.png", bbox_inches='tight')
 	plt.close()
 
 def getImpactfulComponents_cartesian(n=5, dim=10, points=None, labels=None, seed=1234):
