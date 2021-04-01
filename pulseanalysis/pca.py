@@ -729,6 +729,9 @@ def optimizeEntropyTwoPointCartesian(dim=3, traces=None, points=None, labels=Non
 		"labels": labels
 	}
 
+	# save data
+	np.savez("./optimizeEntropyTwoPointCartesian_int_results.npz", **roundOne_results)
+
 	#title1 = title + " Peaks {} Masked Cartesian dim {} of {} Round 1 J Ent {} T Ent {}".format(cal_labels, n, dim, round(ent1_joint, 2), round(ent1_total, 2))
 	#plotDistribution(energies, labels, title="1", bw_list=bw_list, drawPlot=drawPlot)
 
@@ -808,19 +811,6 @@ def plotDistribution(optimization_results=None, title="", bw_list=7*[0.12], res=
 
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
-	#ax = fig.add_subplot(121)
-	#ax2 = fig.add_subplot(122)
-	projections = []
-	projections_xerr = []
-
-	for i in range(len(e_peaks)):
-		histdata = energies[labels==i]
-		median = np.median(histdata)
-		projections.append(median)
-		projections_xerr.append([median - np.percentile(histdata, 25), np.percentile(histdata, 75)-median])
-
-	projections_xerr = np.array(projections_xerr).T
-
 
 	cycle = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -862,8 +852,9 @@ def plotDistribution(optimization_results=None, title="", bw_list=7*[0.12], res=
 		ax.vlines(e, 0, height_array[i], color="black", linestyle="dashed", zorder=zorder)
 		zorder+=1
 
-	nearest = 50
-	y_max = nearest * math.ceil(np.amax(height_array)/nearest)
+	#nearest = 50
+	#y_max = nearest * math.ceil(np.amax(height_array)/nearest)
+	y_max = 850
 
 	#ax.hist(histdata, stacked=True, bins=100)
 	ax.set_xlabel("energy [eV]")
@@ -873,20 +864,55 @@ def plotDistribution(optimization_results=None, title="", bw_list=7*[0.12], res=
 	handles, labels = ax.get_legend_handles_labels()
 	ax.legend(handles[::-1], labels[::-1], loc="upper right", ncol=2, frameon=False, handlelength=1, columnspacing=1)
 
-	"""
-	print("Xerr: ", projections_xerr)
-	ax2.errorbar(projections, e_peaks, xerr=projections_xerr, marker='x', linestyle="", label="Distribution Median")
-	linex = np.linspace(0, np.amax(projections)+1, 1000)
-	ax2.plot(linex, linex, lw=1, linestyle="dashed", label="Linear Model")
-	ax2.plot(linex, s(linex), lw=1, label="Calibration Spline")
-	ax2.set_xlabel("Projected Energy [eV]")
-	ax2.set_ylabel("Real Energy [eV]")
-	ax2.legend(loc="upper right", frameon=False)
-	"""
-
 	fig.set_size_inches(7, 3)
 	plt.savefig("./opt_results.pdf", bbox_inches='tight')
-	plt.savefig("./opt_results.png".format(title), bbox_inches='tight')
+	plt.savefig("./opt_results.png", bbox_inches='tight')
+	plt.close()
+
+def plotTransform(optimization_results=None):
+
+	if optimization_results is None:
+		try:
+			optimization_results = np.load("./optimizeEntropyTwoPointCartesian_int_results.npz")
+		except:
+			raise ValueError("No data was given to plot.")
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111)
+
+	energies = optimization_results["energies"]
+	labels = optimization_results["labels"]
+
+	projections = []
+	projections_xerr = []
+
+	for i in range(len(e_peaks)):
+		histdata = energies[labels==i]
+		median = np.median(histdata)
+		projections.append(median)
+		projections_xerr.append([median - np.percentile(histdata, 25), np.percentile(histdata, 75)-median])
+
+	projections_xerr = np.array(projections_xerr).T
+
+	try:
+		s = interpolate.make_interp_spline([0, *projections], [0, *e_peaks], k=2)
+	except:
+		raise ValueError("Unable to create spline for projections.")
+
+	#print("Xerr: ", projections_xerr)
+	ax.errorbar(projections, e_peaks, xerr=projections_xerr, marker='x', linestyle="", label="distribution median")
+	linex = np.linspace(0, np.amax(projections)*1.1, 1000)
+	ax.plot(linex, linex, lw=1, linestyle="dashed", label="identity")
+	ax.plot(linex, s(linex), lw=1, label="transform $f^{\prime}(x)$")
+	ax.set_xlabel("projected energy [eV]")
+	ax.set_ylabel("real energy [eV]")
+	ax.set_xlim(0, 3)
+	ax.set_ylim(0, 4)
+	ax.legend(loc="upper left", frameon=False)
+
+	fig.set_size_inches(3.5, 3.5)
+	plt.savefig("./opt_transform.pdf", bbox_inches='tight')
+	plt.savefig("./opt_transform.png", bbox_inches='tight')
 	plt.close()
 
 def optimizeEntropyTwoPointCartesian_routine(title, n=15, dim=30, traces=None, points=None, labels=None, bw_list=7*[0.1], seed=1234, verbose=False, drawPlot=False):
