@@ -628,7 +628,7 @@ def getCutoffs(data, npeaks, samples=1000):
 
 	return cutoffs
 
-def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.2], samples=10000, id=""):
+def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.17,.22], samples=10000, id=""):
 
     """
     Takes in array of energies for Iron-55 data and outputs fitted histogram with FWHM displayed. Left peak data
@@ -727,7 +727,7 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.15,.
     ax.set_xlim(5750, 6600)
     ax.legend(loc='upper right', frameon=False)
     ax.set_xlabel("energy [eV]")
-    ax.set_ylabel("counts / bin width")
+    ax.set_ylabel("counts per bin width")
     #ax.set_title("Iron-55 Detector Spectrum using PCA in 80D")
 
     # save plot

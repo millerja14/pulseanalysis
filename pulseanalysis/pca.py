@@ -791,7 +791,7 @@ def getEnergiesCartesian(n=30, dim=80, traces=None, points=None, lables=None, np
 	energies = hist.distToEV(data)
 
 	# save data
-	np.save("./energies_cartesian_{}of{}d.npy".format(n, dim), energies)
+	np.save("./energies_cartesian_{}of{}".format(n, dim), energies)
 
 	return energies
 
