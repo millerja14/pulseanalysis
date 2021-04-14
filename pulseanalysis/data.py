@@ -12,8 +12,8 @@ directory = "./data"
 outliers = []
 outliers_extra_peaks = []
 
-coords = "/loop_geometric_masked.p"
-#coords = "/loop_spectra.p"
+#coords = "/loop_geometric_masked.p"
+coords = "/loop_analytic_masked.p"
 combined = True
 
 def loadEnergies(direct=directory):
@@ -127,9 +127,10 @@ def loadTraces_split(s=0.5, seed=None, direct=directory):
 
 	return traces1, traces2
 
-def plotTrace(pulse=None):
+def plotTrace(pulse=None, direct=directory):
 	if not hasattr(pulse, 'p_trace'):
-		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
+		loop = mc.Loop.from_pickle(direct + coords)
+		loop._set_directory('/data/jmiller/optical_analysis/data/')
 		pulse = loop.pulses[0]
 		trace = pulse.p_trace[0]
 		rate = pulse.sample_rate

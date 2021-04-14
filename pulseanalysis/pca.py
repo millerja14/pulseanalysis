@@ -702,7 +702,7 @@ def optimizeEntropyNSphere_bestComps(n=5, dim=15, comp_list=None, start_coords=[
 
 	return opt, fwhm_list, comp_list
 
-def optimizeEntropyTwoPointCartesian(dim=3, traces=None, points=None, labels=None, cal_labels=[0,5], bw_list=7*[0.1], seed=1234, verbose=False, drawPlot=False):
+def optimizeEntropyTwoPointCartesian(n=30, dim=60, traces=None, points=None, labels=None, cal_labels=[0,5], bw_list=7*[0.1], seed=1234, verbose=False, drawPlot=False):
 
 	if (points is None) or (labels is None):
 		print("optimizeEntropyCartesian_twoPoint(): No traces given, getting default traces...")
@@ -711,7 +711,7 @@ def optimizeEntropyTwoPointCartesian(dim=3, traces=None, points=None, labels=Non
 		del traces
 
 	# do not search for best components
-	n = dim
+	#n = dim
 
 	# set default identity transform
 	transform = lambda x: x
@@ -730,7 +730,7 @@ def optimizeEntropyTwoPointCartesian(dim=3, traces=None, points=None, labels=Non
 	}
 
 	# save data
-	np.savez("./optimizeEntropyTwoPointCartesian_int_results.npz", **roundOne_results)
+	np.savez("./optimizeEntropyTwoPointCartesian_int_results{}of{}.npz".format(n, dim), **roundOne_results)
 
 	#title1 = title + " Peaks {} Masked Cartesian dim {} of {} Round 1 J Ent {} T Ent {}".format(cal_labels, n, dim, round(ent1_joint, 2), round(ent1_total, 2))
 	#plotDistribution(energies, labels, title="1", bw_list=bw_list, drawPlot=drawPlot)
@@ -762,7 +762,7 @@ def optimizeEntropyTwoPointCartesian(dim=3, traces=None, points=None, labels=Non
 	}
 
 	# save data
-	np.savez("./optimizeEntropyTwoPointCartesian_results.npz", **roundTwo_results)
+	np.savez("./optimizeEntropyTwoPointCartesian_results{}of{}.npz".format(n, dim), **roundTwo_results)
 
 	if drawPlot:
 		plotDistribution(roundTwo_results)
@@ -775,7 +775,7 @@ def getRValues(optimization_results=None, bw_list=7*[0.1]):
 
 	if optimization_results is None:
 		try:
-			optimization_results = np.load("./optimizeEntropyTwoPointCartesian_results.npz")
+			optimization_results = np.load("./optimizeEntropyTwoPointCartesian_results80of80.npz")
 		except:
 			raise ValueError("No data was given to plot.")
 
@@ -798,13 +798,15 @@ def getRValues(optimization_results=None, bw_list=7*[0.1]):
 
 	return r_array
 
-def plotDistribution(optimization_results=None, title="", bw_list=7*[0.12], res=0.01):
+def plotDistribution(optimization_results=None, bw_list=[0.12, 0.12, 0.12, 0.12, 0.09, 0.08, 0.06], res=0.01):
 
 	if optimization_results is None:
 		try:
-			optimization_results = np.load("./optimizeEntropyTwoPointCartesian_results.npz")
+			optimization_results = np.load("./optimizeEntropyTwoPointCartesian_results80of80.npz")
 		except:
 			raise ValueError("No data was given to plot.")
+	else:
+		print("Data successfully loaded.")
 
 	energies = optimization_results["energies"]
 	labels = optimization_results["labels"]
@@ -854,7 +856,7 @@ def plotDistribution(optimization_results=None, title="", bw_list=7*[0.12], res=
 
 	#nearest = 50
 	#y_max = nearest * math.ceil(np.amax(height_array)/nearest)
-	y_max = 850
+	y_max = 1000
 
 	#ax.hist(histdata, stacked=True, bins=100)
 	ax.set_xlabel("energy [eV]")
@@ -876,6 +878,8 @@ def plotTransform(optimization_results=None):
 			optimization_results = np.load("./optimizeEntropyTwoPointCartesian_int_results.npz")
 		except:
 			raise ValueError("No data was given to plot.")
+	else:
+		print("Data successfully loaded.")
 
 	fig = plt.figure()
 	ax = fig.add_subplot(111)
@@ -903,10 +907,10 @@ def plotTransform(optimization_results=None):
 	ax.errorbar(projections, e_peaks, xerr=projections_xerr, marker='x', linestyle="", label="distribution median")
 	linex = np.linspace(0, np.amax(projections)*1.1, 1000)
 	ax.plot(linex, linex, lw=1, linestyle="dashed", label="identity")
-	ax.plot(linex, s(linex), lw=1, label="transform $f^{\prime}(x)$")
-	ax.set_xlabel("projected energy [eV]")
+	ax.plot(linex, s(linex), lw=1, label="transform $f_1(x)$")
+	ax.set_xlabel("approximate energy [eV]")
 	ax.set_ylabel("real energy [eV]")
-	ax.set_xlim(0, 3)
+	ax.set_xlim(0, 4)
 	ax.set_ylim(0, 4)
 	ax.legend(loc="upper left", frameon=False)
 
