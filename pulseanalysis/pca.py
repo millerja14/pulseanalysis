@@ -769,7 +769,7 @@ def optimizeEntropyCartesian(n=None, dim=100, traces=None, points=None, labels=N
 
 	return direction, fwhm_list, comp_list
 
-def getEnergiesCartesian(n=30, dim=80, traces=None, points=None, lables=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=False):
+def getEnergiesCartesian(n=30, dim=80, traces=None, points=None, labels=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=False):
 	"""
 	Use cartesian optimzation to find direction of changing energy and compute energies for each pulse
 	"""
@@ -794,6 +794,57 @@ def getEnergiesCartesian(n=30, dim=80, traces=None, points=None, lables=None, np
 	np.save("./energies_cartesian_{}of{}".format(n, dim), energies)
 
 	return energies
+
+def plotNonlinearity(n=30, dim=30, traces=None, points=None, labels=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=False):
+	if (points is None) or (labels is None):
+		try:
+			energies = np.load("./energies_cartesian_{}of{}.npy".format(n, dim))
+			traces = mkid.loadTraces(join=False)
+		except:
+			print("Failed to load energies from file.")
+			if traces is None:
+				print("getEnergiesCartesian(): No traces given, getting default traces...")
+				traces = mkid.loadTraces(join=False)
+
+			print("Getting PCA decomposition in " + str(dim) + " dimensions...")
+			points, labels = generateScatter_labeled(dim=dim, traces=traces)
+
+			energies = getEnergiesCartesian(n=n, dim=dim, traces=traces, points=points, labels=labels, npeaks=npeaks, bw_list=bw_list, seed=seed, verbose=verbose, drawPlot=drawPlot)
+			np.save("./energies_cartesian_{}of{}".format(n, dim), energies)
+
+	cutoff = 6250
+	mask = energies < cutoff
+	trace_low = np.mean(traces[mask], axis=0)
+	trace_high = np.mean(traces[np.logical_not(mask)], axis=0)
+	energy_low = np.mean(energies[mask])
+	energy_high = np.mean(energies[np.logical_not(mask)])
+
+	rate = mkid.get_rate()
+
+	x = np.arange(0, traces[0].size)*(1/rate)*(10**3)
+
+	fig = plt.figure()
+	ax = fig.add_subplot(121)
+
+	ax.plot(x, trace_low, label="5.9 keV")
+	ax.plot(x, trace_high, label="6.5 keV")
+
+	ax2 = fig.add_subplot(122)
+	ax2.plot(x, trace_high/trace_low)
+	ax2.set_ylabel("phase ratio [arb.]")
+	ax2.set_ylim(1.02,1.12)
+	ax2.axhline(y=E_HIGH/E_LOW, linestyle="--", color='grey', label="true energy ratio")
+	ax2.set_xlim(5, 7)
+	ax2.set_xlabel("time [ms]")
+	ax2.legend(loc="lower right")
+
+	ax.set_xlabel("time [ms]")
+	ax.set_ylabel("phase shift [rad]")
+	ax.set_xlim(5, 7)
+	ax.legend(loc="lower right")
+	ax.set_ylim(-3.5,0)
+
+	plt.show()
 
 def getEnergiesFull(dim=2, traces=None, points=None, lables=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=False):
 	"""
@@ -966,7 +1017,7 @@ def componentContribution_best(n=5, drawPlot=True):
 
 	return dim_list, entropy_list, first_fwhm_list, second_fwhm_list
 
-def componentContribution_compare(n1=3, n2=80, traces=None, seed=1234, verbose=False, drawPlot=False):
+def componentContribution_compare(n1=3, n2=80, traces=None, seed=1234, verbose=False, drawPlot=False, id=""):
 
 	"""
 	Generate data to compare the component contribution for cartesian and spherical methods on two peaks.
@@ -998,19 +1049,19 @@ def componentContribution_compare(n1=3, n2=80, traces=None, seed=1234, verbose=F
 	}
 
 	# save data
-	np.savez("./componentContribution_compare_results.npz", **componentContribution_results)
+	np.savez("./componentContribution_compare_results{}.npz".format(id), **componentContribution_results)
 
 	if drawPlot:
-		plot_componentContribution_compare(componentContribution_results)
+		plot_componentContribution_compare(componentContribution_results, id=id)
 
 	return componentContribution_results
 
 
-def plot_componentContribution_compare(componentContribution_results=None):
+def plot_componentContribution_compare(componentContribution_results=None, id=id):
 
 	if componentContribution_results is None:
 		try:
-			componentContribution_results = np.load("./componentContribution_compare_results.npz")
+			componentContribution_results = np.load("./componentContribution_compare_results{}.npz".format(id))
 		except:
 			raise ValueError("No data was given to plot.")
 
@@ -1040,8 +1091,8 @@ def plot_componentContribution_compare(componentContribution_results=None):
 	ax_fwhm.yaxis.set_major_formatter(ticker.ScalarFormatter())
 
 	fig.set_size_inches(7, 3)
-	plt.savefig("./comp_contrib.pdf", bbox_inches='tight')
-	plt.savefig("./comp_contrib.png", bbox_inches='tight')
+	plt.savefig("./comp_contrib{}.pdf".format(id), bbox_inches='tight')
+	plt.savefig("./comp_contrib{}.png".format(id), bbox_inches='tight')
 	plt.close()
 
 def getImpactfulComponents_cartesian(n=5, dim=10, points=None, labels=None, seed=1234):

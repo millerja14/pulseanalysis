@@ -695,7 +695,9 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.17,.
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
-    n, bins, _ = ax.hist(data, bins=nbins, alpha=0.3)
+    cmap = plt.get_cmap("tab10")
+
+    n, bins, _ = ax.hist(data, bins=nbins, alpha=0.3, color=cmap(0))
 
     # compute areas of the histogram to the left and right of the cutoff
     # these values are for scaling the fit curve to match the size of the histogram
@@ -712,10 +714,10 @@ def getFWHM_fe55(data=None, x0=loc1, x1=loc2, A=A, B=B, loops=20, bw_list=[.17,.
     f = lambda x: ratio0*f00(x) + ratio0*f01(x) + ratio1*f10(x)
 
     # plot and label each of three peaks and the total distribution fit
-    ax.plot(xdata00, ratio0*ydata00, label=(r"$\Delta$E: {:.0f} eV".format(round(width00))), linewidth=1)
-    ax.plot(xdata01, ratio0*ydata01, label=(r"$\Delta$E: {:.0f} eV".format(round(width01))), linewidth=1)
-    ax.plot(xdata10, ratio1*ydata10, label=(r"$\Delta$E: {:.0f} eV".format(round(width10))), linewidth=1)
-    ax.plot(xdata, f(xdata), label=("total"), linestyle=(0, (2, 1)), linewidth=1)
+    ax.plot(xdata00, ratio0*ydata00, label=(r"$\Delta$E: {:.0f} eV".format(round(width00))), linewidth=2, color=cmap(1))
+    ax.plot(xdata01, ratio0*ydata01, label=(r"$\Delta$E: {:.0f} eV".format(round(width01))), linewidth=2, color=cmap(2))
+    ax.plot(xdata10, ratio1*ydata10, label=(r"$\Delta$E: {:.0f} eV".format(round(width10))), linewidth=2, color=cmap(6))
+    ax.plot(xdata, f(xdata), label=("total"), linestyle=(0, (2, 2)), linewidth=1, color="black")
 
     # mark each peak location
     ax.vlines(loc1, 0, ratio0*peak1, linestyles='dashed')

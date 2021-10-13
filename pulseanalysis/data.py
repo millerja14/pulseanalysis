@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 directory = "./data"
+dscale = 1
 
-def loadTraces(direct=directory):
+def loadTraces(direct=directory, join=True, dscale=dscale):
 
 	'''
 	Load pulse tracs from KID data given a data directory.
@@ -17,9 +18,12 @@ def loadTraces(direct=directory):
 	loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')
 
 	ptraces = loop.pulses[0].p_trace
-	dtraces = loop.pulses[0].d_trace
-	#traces = ptraces
-	traces = np.concatenate((ptraces, dtraces), axis=1)
+	dtraces = dscale*loop.pulses[0].d_trace
+
+	if join:
+		traces = np.concatenate((ptraces, dtraces), axis=1)
+	else:
+		traces = ptraces
 
 	# FOR SPECIFIC DATA SET
 	# REMOVE OUTLIERS
@@ -83,6 +87,16 @@ def loadTraces_split(s=0.5, seed=None, direct=directory):
 
 	return traces1, traces2
 
+def get_rate(pulse=None):
+	if not hasattr(pulse, 'p_trace'):
+		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
+		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')
+		pulse = loop.pulses[0]
+	trace = pulse.p_trace[0]
+	rate = pulse.sample_rate
+
+	return rate
+
 def plotTrace_phase(pulse=None):
 	if not hasattr(pulse, 'p_trace'):
 		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
@@ -102,7 +116,7 @@ def plotTrace_phase(pulse=None):
 
 	plt.show()
 
-def plotTrace_both(pulse=None):
+def plotTrace_both(pulse=None, dscale=dscale):
 	if not (hasattr(pulse, 'p_trace') and hasattr(pulse, 'd_trace')):
 		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
 		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')
@@ -127,13 +141,15 @@ def plotTrace_both(pulse=None):
 	ax_p.set_ylim(y_min, y_max)
 
 	ax_d = fig.add_subplot(122)
-	ax_d.plot(x_d, d_trace)
+	ax_d.plot(x_d, dscale*d_trace)
 	ax_d.set_xlabel("time [ms]")
 	ax_d.set_ylabel("dissipation [radians]")
 	ax_d.set_ylim(y_min, y_max)
 
 	fig.set_size_inches(7, 3)
-	plt.savefig("./trace.pdf", bbox_inches='tight')
+	#plt.savefig("./trace.pdf", bbox_inches='tight')
+	plt.savefig("./trace_test.pdf", bbox_inches='tight')
+	plt.savefig("./trace_test.png", bbox_inches='tight')
 	plt.close()
 
 def plotTrace_combined(pulse=None):
