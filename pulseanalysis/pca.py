@@ -523,7 +523,7 @@ def entropyFromDist(data, labels, drawPlot=False, e_low=E_LOW, e_high=E_HIGH):
 
 	return ent
 
-def optimizeEntropyFull(dim=3, comp_list=None, start_coords=[], traces=None, points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False, verbose=True):
+def optimizeEntropyFull(dim=3, comp_list=None, start_coords=[], x0=None, traces=None, points=None, labels=None, interval=1, npeaks=2, bw_list=[.15,.2], seed=1234, drawPlot=False, verbose=True):
 
 	'''
 	Optimize projection direction in any dimension by minimizing entropy. Coordinates of result are in spherical. Details of each optimization are pickled to a file.
@@ -574,7 +574,8 @@ def optimizeEntropyFull(dim=3, comp_list=None, start_coords=[], traces=None, poi
 	func = lambda x, *params : entropyFromSpherical([*start_coords, *x], *params)
 
 	# optimize
-	opt = optimize.differential_evolution(func, bounds, args=params, maxiter=maxiter, popsize=popsize, tol=tol, mutation=mutation, seed=seed)
+	#opt = optimize.differential_evolution(func, bounds, args=params, maxiter=maxiter, popsize=popsize, tol=tol, mutation=mutation, seed=seed, x0=x0)
+	opt = optimize.differential_evolution(func, bounds, args=params, popsize=350, tol=0.0001)
 
 	# complete the final coordinate set if we used start coords
 	opt.x = np.array([*start_coords, *opt.x])
@@ -897,12 +898,14 @@ def componentContribution_recursive(n=5, traces=None, points=None, labels=None, 
 	entropy_list = []
 	first_fwhm_list = []
 	second_fwhm_list = []
+	direction_list = []
 
 	for obj in results:
 		dim_list.append(obj["dim"])
 		entropy_list.append(obj["entropy"])
 		first_fwhm_list.append(obj["fwhm"][0])
 		second_fwhm_list.append(obj["fwhm"][1])
+		direction_list.append(obj["direction"])
 
 	if drawPlot:
 		fig = plt.figure()
@@ -918,9 +921,9 @@ def componentContribution_recursive(n=5, traces=None, points=None, labels=None, 
 
 		plt.show()
 
-	return dim_list, entropy_list, first_fwhm_list, second_fwhm_list
+	return dim_list, entropy_list, first_fwhm_list, second_fwhm_list, direction_list
 
-def componentContribution(n=5, traces=None, seed=1234, drawPlot=True):
+def componentContribution(n=5, traces=None, seed=1234, drawPlot=True, start_directions=None):
 	if n<2:
 		raise ValueError("N must be 2 or larger")
 
@@ -928,6 +931,12 @@ def componentContribution(n=5, traces=None, seed=1234, drawPlot=True):
 		print("No traces given")
 		print("Extracting traces from file...")
 		traces = mkid.loadTraces()
+
+	if start_directions is not None:
+		if not (len(start_directions) >= n-1):
+			raise ValueError("Must give at least n-1 starting directions. {} were given.".format(len(start_directions)))
+	else:
+		directions = [None]*(n-1)
 
 	dim_list = []
 	entropy_list = []
@@ -938,7 +947,7 @@ def componentContribution(n=5, traces=None, seed=1234, drawPlot=True):
 		dim =i+2
 		print("Optimizing in {}D".format(dim))
 		points, labels = generateScatter_labeled(dim, traces)
-		opt, fwhm = optimizeEntropyFull(dim=dim, points=points, labels=labels, seed=seed)
+		opt, fwhm = optimizeEntropyFull(dim=dim, points=points, labels=labels, seed=seed, x0=start_directions[i])
 
 		dim_list.append(dim)
 		entropy_list.append(opt.fun)
@@ -1017,7 +1026,7 @@ def componentContribution_best(n=5, drawPlot=True):
 
 	return dim_list, entropy_list, first_fwhm_list, second_fwhm_list
 
-def componentContribution_compare(n1=3, n2=80, traces=None, seed=1234, verbose=False, drawPlot=False, id=""):
+def componentContribution_compare(n1=3, n2=80, traces=None, seed=1234, verbose=False, drawPlot=False, useDir=False, id=""):
 
 	"""
 	Generate data to compare the component contribution for cartesian and spherical methods on two peaks.
@@ -1034,10 +1043,20 @@ def componentContribution_compare(n1=3, n2=80, traces=None, seed=1234, verbose=F
 	fwhm_list_1d, _ = hist.getFWHM(data, drawPlot=False)
 
 	# get first n2 contributions using recursive method
-	dim_list_cart, entropy_list_cart, first_fwhm_list_cart, second_fwhm_list_cart = componentContribution_recursive(n=n2, traces=traces, seed=seed, drawPlot=False)
+	dim_list_cart, entropy_list_cart, first_fwhm_list_cart, second_fwhm_list_cart, direction_list_cart = componentContribution_recursive(n=n2, traces=traces, seed=seed, drawPlot=False)
+
+	if useDir:
+		direction_list_nsphere = []
+		for i, direction in enumerate(direction_list_cart):
+			direction_list_nsphere.append(cartesianToNSphere(direction))
+		#print(direction_list_cart)
+		#print(direction_list_nsphere)
+	else:
+		direction_list_nsphere = None
+		print("Full optimization not using starting directions.")
 
 	# get first n1 contributions using full method
-	dim_list_sphere, entropy_list_sphere, first_fwhm_list_sphere, second_fwhm_list_sphere = componentContribution(n=n1, traces=traces, seed=seed, drawPlot=False)
+	dim_list_sphere, entropy_list_sphere, first_fwhm_list_sphere, second_fwhm_list_sphere = componentContribution(n=n1, traces=traces, seed=seed, drawPlot=False, start_directions=direction_list_nsphere)
 
 	componentContribution_results = {
 		"dim_list_cart": np.array([1, *dim_list_cart]).flatten(),
@@ -1163,15 +1182,16 @@ def entropyFromCartesian(v, *params):
 
 	return ent
 
-def nSphereToCartesian(phi, *thetas, norm=1):
+def nSphereToCartesian(*thetas, norm=1):
 
 	"""
 	Convert a vector given in generalized spherical coordinates
 	to cartesian coordinates.
+
+	thetas can be [0, 180] except for last which is [0, 360)
 	"""
 
-	thetas = np.array(thetas)
-	ang = np.radians(np.insert(thetas, 0,  phi, axis=0))
+	ang = np.radians(np.array(thetas)).flatten()
 
 	n = 1 + ang.size
 	x = np.zeros(n)
@@ -1191,6 +1211,42 @@ def nSphereToCartesian(phi, *thetas, norm=1):
 		#print(string)
 
 	return x
+
+def cartesianToNSphere(x):
+	x = np.array(x)
+	x = x/np.linalg.norm(x)
+
+	n = x.size - 1
+	ang = np.zeros(n) #important to be zeros
+
+	cutoff = n-1
+
+	if x[-1] == 0:
+		for i in range(x.size-1):
+			if x[-(i+2)] == 0:
+				cutoff -= 1
+			else:
+				#print("Found {} zeros".format(i))
+				break
+
+	for i in range(cutoff):
+		ang[i] = np.arccos(x[i]/np.linalg.norm(x[i:]))
+
+	# last angle depends on sign of last coordinate
+	if x[cutoff+1] >= 0:
+		ang[cutoff] = np.arccos(x[cutoff]/np.linalg.norm(x[cutoff:]))
+	else:
+		ang[cutoff] = 2*np.pi - np.arccos(x[cutoff]/np.linalg.norm(x[cutoff:]))
+
+	ang = np.degrees(ang)
+
+	if ang[-1] > 180:
+		ang[-1] -= 180
+		ang[0:-1] = -ang[0:-1] + 180
+
+	return ang
+
+
 
 def scatterAnim(angle_start=0, angle_end=150, start_dir=[0,1], colors=True):
 
