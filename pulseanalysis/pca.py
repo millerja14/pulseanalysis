@@ -574,8 +574,8 @@ def optimizeEntropyFull(dim=3, comp_list=None, start_coords=[], x0=None, traces=
 	func = lambda x, *params : entropyFromSpherical([*start_coords, *x], *params)
 
 	# optimize
-	#opt = optimize.differential_evolution(func, bounds, args=params, maxiter=maxiter, popsize=popsize, tol=tol, mutation=mutation, seed=seed, x0=x0)
-	opt = optimize.differential_evolution(func, bounds, args=params, popsize=350, tol=0.0001)
+	opt = optimize.differential_evolution(func, bounds, args=params, maxiter=maxiter, popsize=popsize, tol=tol, mutation=mutation, seed=seed, x0=x0)
+	#opt = optimize.differential_evolution(func, bounds, args=params, popsize=350, tol=0.0001, seed=seed)
 
 	# complete the final coordinate set if we used start coords
 	opt.x = np.array([*start_coords, *opt.x])
@@ -796,7 +796,7 @@ def getEnergiesCartesian(n=30, dim=80, traces=None, points=None, labels=None, np
 
 	return energies
 
-def plotNonlinearity(n=30, dim=30, traces=None, points=None, labels=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=False):
+def plotNonlinearity(n=30, dim=30, traces=None, points=None, labels=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=False, id=""):
 	if (points is None) or (labels is None):
 		try:
 			energies = np.load("./energies_cartesian_{}of{}.npy".format(n, dim))
@@ -813,6 +813,9 @@ def plotNonlinearity(n=30, dim=30, traces=None, points=None, labels=None, npeaks
 			energies = getEnergiesCartesian(n=n, dim=dim, traces=traces, points=points, labels=labels, npeaks=npeaks, bw_list=bw_list, seed=seed, verbose=verbose, drawPlot=drawPlot)
 			np.save("./energies_cartesian_{}of{}".format(n, dim), energies)
 
+	rate = mkid.get_rate()
+	x = np.arange(0, traces[0].size)*(1/rate)*(10**3)
+
 	cutoff = 6250
 	mask = energies < cutoff
 	trace_low = np.mean(traces[mask], axis=0)
@@ -820,32 +823,49 @@ def plotNonlinearity(n=30, dim=30, traces=None, points=None, labels=None, npeaks
 	energy_low = np.mean(energies[mask])
 	energy_high = np.mean(energies[np.logical_not(mask)])
 
-	rate = mkid.get_rate()
+	energies_low = energies[mask]
+	energies_high = energies[np.logical_not(mask)]
 
-	x = np.arange(0, traces[0].size)*(1/rate)*(10**3)
+	trace_low_norm = trace_low/np.amax(np.abs(trace_low))
+	trace_high_norm = trace_high/np.amax(np.abs(trace_high))
+	trace_diff = np.abs(trace_low_norm - trace_high_norm)
+
+	energies_low_b = np.percentile(energies_low, 25)
+	energies_low_t = np.percentile(energies_low, 75)
+	energies_high_b = np.percentile(energies_high, 25)
+	energies_high_t = np.percentile(energies_high, 75)
+
+	trace_low_b = np.mean(traces[energies < energies_low_b], axis=0)
+	trace_low_t = np.mean(traces[(energies > energies_low_t) & (energies < cutoff)], axis=0)
+	trace_high_b = np.mean(traces[(energies > cutoff) & (energies < energies_high_b)], axis=0)
+	trace_high_t = np.mean(traces[energies > energies_high_t], axis=0)
+
+	trace_low_b_norm = trace_low_b/np.amax(np.abs(trace_low_b))
+	trace_low_t_norm = trace_low_t/np.amax(np.abs(trace_low_t))
+	trace_high_b_norm = trace_high_b/np.amax(np.abs(trace_high_b))
+	trace_high_t_norm = trace_high_t/np.amax(np.abs(trace_high_t))
+
+	trace_low_diff = np.abs(trace_low_b_norm - trace_low_t_norm)
+	trace_high_diff = np.abs(trace_high_b_norm - trace_high_t_norm)
+
+	tstart = 4
 
 	fig = plt.figure()
-	ax = fig.add_subplot(121)
-
-	ax.plot(x, trace_low, label="5.9 keV")
-	ax.plot(x, trace_high, label="6.5 keV")
-
-	ax2 = fig.add_subplot(122)
-	ax2.plot(x, trace_high/trace_low)
-	ax2.set_ylabel("phase ratio [arb.]")
-	ax2.set_ylim(1.02,1.12)
-	ax2.axhline(y=E_HIGH/E_LOW, linestyle="--", color='grey', label="true energy ratio")
-	ax2.set_xlim(5, 7)
-	ax2.set_xlabel("time [ms]")
-	ax2.legend(loc="lower right")
-
+	ax = fig.add_subplot(111)
+	ax.plot(x, trace_diff*100, label="between {:.1f} keV and {:.1f} keV pulses".format(E_LOW/1000, E_HIGH/1000), zorder=1)
+	ax.plot(x, trace_low_diff*100, label="within {:.1f} keV pulses".format(E_LOW/1000), zorder=3)
+	ax.plot(x, trace_high_diff*100, label="within {:.1f} keV pulses".format(E_HIGH/1000), zorder=2)
+	ax.axvline(x=5, linestyle="dashed", color="grey", label="photon incidence")
+	ax.set_xlim(tstart, 10)
+	ax.set_ylim(0, 4)
 	ax.set_xlabel("time [ms]")
-	ax.set_ylabel("phase shift [rad]")
-	ax.set_xlim(5, 7)
-	ax.legend(loc="lower right")
-	ax.set_ylim(-3.5,0)
+	ax.set_ylabel("shape difference [%]")
+	ax.legend(loc="upper right", frameon=False)
 
-	plt.show()
+	fig.set_size_inches(7, 3)
+	plt.savefig("./nonlin{}.pdf".format(id), bbox_inches='tight')
+	plt.savefig("./nonlin{}.png".format(id), bbox_inches='tight')
+	plt.close()
 
 def getEnergiesFull(dim=2, traces=None, points=None, lables=None, npeaks=2, bw_list=[.15,.2], seed=1234, verbose=False, drawPlot=False):
 	"""
@@ -936,7 +956,7 @@ def componentContribution(n=5, traces=None, seed=1234, drawPlot=True, start_dire
 		if not (len(start_directions) >= n-1):
 			raise ValueError("Must give at least n-1 starting directions. {} were given.".format(len(start_directions)))
 	else:
-		directions = [None]*(n-1)
+		start_directions = [None]*(n-1)
 
 	dim_list = []
 	entropy_list = []
@@ -946,8 +966,24 @@ def componentContribution(n=5, traces=None, seed=1234, drawPlot=True, start_dire
 	for i in range(n-1):
 		dim =i+2
 		print("Optimizing in {}D".format(dim))
+
+		# should not have to recompute the pca on every iteration. Ths is dumb and slow.
 		points, labels = generateScatter_labeled(dim, traces)
+
 		opt, fwhm = optimizeEntropyFull(dim=dim, points=points, labels=labels, seed=seed, x0=start_directions[i])
+
+		## This functionality should be implemented in a plotting function after
+		## running optimization on several sets of directions
+		#print("{}D: Entropy from specified x0 is {}".format(dim, opt.fun))
+		#print("FWHM are {}eV and {}eV".format(*fwhm))
+		#if start_directions[i] is not None:
+		#	opt2, fwhm2 = optimizeEntropyFull(dim=dim, points=points, labels=labels, seed=seed, x0=None)
+		#	if opt2.fun < opt.fun:
+		#		print("{}D: Entropy from non-specified x0 is {}".format(dim, opt2.fun))
+		#		print("FWHM are {}eV and {}eV".format(*fwhm2))
+		#		print("Non-specified direction was better, replacing.")
+		#		opt, fwhm = opt2, fwhm2
+
 
 		dim_list.append(dim)
 		entropy_list.append(opt.fun)
@@ -1026,7 +1062,7 @@ def componentContribution_best(n=5, drawPlot=True):
 
 	return dim_list, entropy_list, first_fwhm_list, second_fwhm_list
 
-def componentContribution_compare(n1=3, n2=80, traces=None, seed=1234, verbose=False, drawPlot=False, useDir=False, id=""):
+def componentContribution_compare(n1=3, n2=80, traces=None, seed=1234, verbose=False, drawPlot=True, useDir=True, id=""):
 
 	"""
 	Generate data to compare the component contribution for cartesian and spherical methods on two peaks.
@@ -1046,14 +1082,15 @@ def componentContribution_compare(n1=3, n2=80, traces=None, seed=1234, verbose=F
 	dim_list_cart, entropy_list_cart, first_fwhm_list_cart, second_fwhm_list_cart, direction_list_cart = componentContribution_recursive(n=n2, traces=traces, seed=seed, drawPlot=False)
 
 	if useDir:
+		print("Full optimization will use starting directions.")
 		direction_list_nsphere = []
 		for i, direction in enumerate(direction_list_cart):
 			direction_list_nsphere.append(cartesianToNSphere(direction))
 		#print(direction_list_cart)
 		#print(direction_list_nsphere)
 	else:
+		print("Full optimization will not use starting directions.")
 		direction_list_nsphere = None
-		print("Full optimization not using starting directions.")
 
 	# get first n1 contributions using full method
 	dim_list_sphere, entropy_list_sphere, first_fwhm_list_sphere, second_fwhm_list_sphere = componentContribution(n=n1, traces=traces, seed=seed, drawPlot=False, start_directions=direction_list_nsphere)
