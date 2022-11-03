@@ -11,7 +11,7 @@ dscale = 1
 def loadTraces(direct=directory, join=True, dscale=dscale):
 
 	'''
-	Load pulse tracs from KID data given a data directory.
+	Load pulse traces from KID data given a data directory.
 	'''
 
 	loop = mc.Loop.from_pickle(direct + "/analysis/loop_combined.p")
@@ -53,9 +53,10 @@ def loadTraces(direct=directory, join=True, dscale=dscale):
 	57,  589,  620,  630,  631,  639,  684,  688,    7,  701,  757,
 	765,  819,  826,  827,  837,  872,  898,    9,  907,  941,  985,
 	991]
-	#toRemove = []
 
-	toRemove = np.union1d(outliers, outliers_extra_peaks)
+	# uncomment second line to remove outliers
+	toRemove = []
+	#toRemove = np.union1d(outliers, outliers_extra_peaks)
 
 	traces = np.delete(traces, toRemove, axis=0)
 
@@ -65,6 +66,12 @@ def loadTraces(direct=directory, join=True, dscale=dscale):
 	return traces
 
 def loadTraces_split(s=0.5, seed=None, direct=directory):
+	"""
+	Load traces but split them into a training and validation set, with
+	the relative size of each set by 's'. The selections are randomized
+	according to the seed given by 'seed'.
+	"""
+
 	if s > 1 or s < 0:
 		return ValueError("S must be between 0 and 1")
 
@@ -88,6 +95,11 @@ def loadTraces_split(s=0.5, seed=None, direct=directory):
 	return traces1, traces2
 
 def get_rate(pulse=None):
+	"""
+	Return the sample rate of the pulse object given by 'pulse', otherwise
+	find the loop object at the location specified inside the function.
+	"""
+
 	if not hasattr(pulse, 'p_trace'):
 		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
 		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')
@@ -98,6 +110,10 @@ def get_rate(pulse=None):
 	return rate
 
 def plotTrace_phase(pulse=None):
+	"""
+	Plot the phase trace of a pulse.
+	"""
+
 	if not hasattr(pulse, 'p_trace'):
 		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
 		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')
@@ -117,6 +133,10 @@ def plotTrace_phase(pulse=None):
 	plt.show()
 
 def plotTrace_both(pulse=None, dscale=dscale):
+	"""
+	Plot the phase trace and dissipation trace of a pulse.
+	"""
+
 	if not (hasattr(pulse, 'p_trace') and hasattr(pulse, 'd_trace')):
 		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
 		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')
@@ -153,6 +173,10 @@ def plotTrace_both(pulse=None, dscale=dscale):
 	plt.close()
 
 def plotTrace_combined(pulse=None):
+	"""
+	Plot the full trace of a pulse with phase and dissipation end-to-end.
+	"""
+
 	if not(hasattr(pulse, 'p_trace') and hasattr(pulse, 'd_trace')):
 		loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
 		loop._set_directory('/data/jmiller/tkid_analysis/data/analysis/')

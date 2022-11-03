@@ -1113,7 +1113,7 @@ def componentContribution_compare(n1=3, n2=80, traces=None, seed=1234, verbose=F
 	return componentContribution_results
 
 
-def plot_componentContribution_compare(componentContribution_results=None, id=id):
+def plot_componentContribution_compare(componentContribution_results=None, id=""):
 
 	if componentContribution_results is None:
 		try:

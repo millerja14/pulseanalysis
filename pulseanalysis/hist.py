@@ -1,4 +1,3 @@
-import mkidcalculator as mc
 import numpy as np
 import matplotlib
 matplotlib.use('tkagg')
@@ -14,165 +13,24 @@ from matplotlib.ticker import FormatStrFormatter
 
 import cmath
 
+# relative heights of the three xray peaks
 A=8.2
 B=16.2
 C=2.85
 
+# xray peak locations in eV
 loc1 = 5887.65
 loc2 = 5898.75
 loc3 = 6490.45
+
+# effective location of bottom peak, which will be the
+# bottom two peaks overlapping due to finite energy resolution
 loc0 = (A*loc1+B*loc2)/(A+B)
 
+# these two peaks will be used to scale the data
 e_low = loc0
 e_high = loc3
-e_cutoff = 6250
 e_peaks = np.array([e_low, e_high])
-
-def S21(f, fr, Qc=2*10**5, Qi=2*10**5):
-        Q = 1 / ((1/Qc) + (1/Qi))
-        S = 1 - (Q/Qc) / ( 1 + 2j * Q * (f-fr)/(fr) )
-        return 20*np.log10(abs(S))
-
-def transfer(f, L):
-
-	if f == 0:
-		return np.pi/2
-
-	w = 2*np.pi*f
-
-	R = 10**2
-	C1 = 10**-3
-	C2 = 10**-7
-
-	IR = R
-	#IC1 = 1 / (1j*w*C1)
-	IC1 = 0
-	IC2 = 1 / (1j*w*C2)
-	IL = 1j*w*L
-
-	I_p = 1/((1/IL) + (1/IC2))
-
-	I_f = IC1 + I_p
-
-	I = I_f / (IR + I_f)
-
-	return cmath.phase(I)
-
-def findRoot():
-	L1 = 10**-4
-	L2 = L1 * 1.5
-
-	tfunc = np.vectorize(transfer)
-	f_1 = optimize.root_scalar(tfunc, args=(L1), bracket=[0.001, 10**5], method="brentq").root
-	f_2 = optimize.root_scalar(tfunc, args=(L2), bracket=[0.001, 10**5], method="brentq").root
-	x_range = np.linspace(0, 2*f_1, 10**3)
-	y1_range = tfunc(x_range, L1)
-	y2_range = tfunc(x_range, L2)
-	fig = plt.figure()
-	ax = fig.add_subplot()
-	ax.plot(x_range, y1_range+np.pi, lw=3, label="before incidence")
-	ax.plot(x_range, y2_range+np.pi, lw=3, linestyle="dashed", label="on incidence")
-	ax.set_xticks([f_1])
-	ax.set_xticklabels([r"$f_0$"])
-	ax.axvline(x=f_1, color="black", lw=2)
-	ax.axhline(y=tfunc(f_1, L1)+np.pi, xmin=0.1, xmax=0.3, color="black", lw=2)
-	ax.axhline(y=tfunc(f_1, L2)+np.pi, xmin=0.1, xmax=0.3, color="black", lw=2)
-	ax.set_xlabel("Frequency")
-	ax.set_ylabel("Phase Shift [rad]")
-	ax.set_title("KID Photon Response")
-	ax.legend(loc="upper right")
-	plt.show()
-
-def readoutAnimation(samples=1000):
-	fr1 = 5
-	f_spread = 0.001/2
-	fr2 = fr1 - f_spread/8
-
-	f_array = np.linspace(fr1-f_spread, fr1+f_spread, samples)
-	s1_array = S21(f_array, fr1, Qc=1*10**5, Qi=1*10**5)
-	s2_array = 0.5 * S21(f_array, fr2, Qc=4*10**4, Qi=4*10**4)
-
-	f1 = interpolate.interp1d(f_array, s1_array)
-	f2 = interpolate.interp1d(f_array, s2_array)
-
-	fig = plt.figure()
-	ax = fig.add_subplot(111)
-	#ax.set_ylim(-0.9, 0.1)
-	#ax.set_xlim(fr1-f_spread, fr1+f_spread)
-	ax.set_xticks([fr2, fr1])
-	ax.set_xticklabels([r"$f'$", r"$f_0$"])
-	#ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-	ax.plot(f_array, s1_array, lw=3, label="before incidence")
-	ax.plot(f_array, s2_array, linestyle='dashed', lw=3, label="on incidence")
-	ax.axvline(x=fr1, color="black", lw=2)
-	ax.axvline(x=fr2, color="black", linestyle="dashed", lw=2)
-	ax.axhline(y=f1(fr1), xmin=0.6, xmax=0.8, color="black", lw=2)
-	ax.axhline(y=f2(fr1), xmin=0.6, xmax=0.8, color="black", lw=2)
-	ax.set_ylabel("Power [dB]")
-	ax.set_xlabel("Frequency")
-	ax.set_title("KID Photon Response")
-	ax.legend(loc="lower left")
-	plt.show()
-
-def plotDetectorResponse(samples=1000):
-	fig = plt.figure()
-	fig.set_size_inches(27, 10.8, True)
-	ax1 = fig.add_subplot(121)
-	ax2 = fig.add_subplot(122)
-
-	fr1 = 5
-	f_spread = 0.001/2
-	fr2 = fr1 - f_spread/8
-
-	f_array = np.linspace(fr1-f_spread, fr1+f_spread, samples)
-	s1_array = S21(f_array, fr1, Qc=1*10**5, Qi=1*10**5)
-	s2_array = 0.5 * S21(f_array, fr2, Qc=4*10**4, Qi=4*10**4)
-
-	f1 = interpolate.interp1d(f_array, s1_array)
-	f2 = interpolate.interp1d(f_array, s2_array)
-
-	#ax.set_ylim(-0.9, 0.1)
-	#ax.set_xlim(fr1-f_spread, fr1+f_spread)
-	ax1.set_xticks([fr2, fr1])
-	ax1.set_xticklabels([r"${f_r}'$", r"$f_r$"])
-	#ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-	ax1.plot(f_array, s1_array, lw=3, label="before incidence")
-	ax1.plot(f_array, s2_array, linestyle='dashed', lw=3, label="on incidence")
-	ax1.axvline(x=fr1, color="black", lw=2)
-	ax1.axvline(x=fr2, color="black", linestyle="dashed", lw=2)
-	ax1.axhline(y=f1(fr1), xmin=0.5, xmax=0.8, color="gray", lw=2)
-	ax1.axhline(y=f2(fr1), xmin=0.5, xmax=0.8, color="gray", lw=2)
-	ax1.set_ylabel("Power [dB]")
-	ax1.set_xlabel("Frequency")
-	ax1.set_title("Dissipation")
-	#ax1.legend(loc="lower left")
-
-	L1 = 10**-4
-	L2 = L1 * 1.5
-
-	tfunc = np.vectorize(transfer)
-	f_1 = optimize.root_scalar(tfunc, args=(L1), bracket=[0.001, 10**5], method="brentq").root
-	f_2 = optimize.root_scalar(tfunc, args=(L2), bracket=[0.001, 10**5], method="brentq").root
-	x_range = np.linspace(0, 2*f_1, samples)
-	y1_range = tfunc(x_range, L1)
-	y2_range = tfunc(x_range, L2)
-
-	ax2.plot(x_range, y1_range+np.pi, lw=3, label="before incidence")
-	ax2.plot(x_range, y2_range+np.pi, lw=3, linestyle="dashed", label="on incidence")
-	ax2.set_xticks([f_2, f_1])
-	ax2.set_xticklabels([r"${f_r}'$", r"$f_r$"])
-	ax2.axvline(x=f_1, color="black", lw=2)
-	ax2.axvline(x=f_2, color="black", lw=2, linestyle="dashed")
-	ax2.axhline(y=tfunc(f_1, L1)+np.pi, xmin=0.1, xmax=0.5, color="gray", lw=2)
-	ax2.axhline(y=tfunc(f_1, L2)+np.pi, xmin=0.1, xmax=0.5, color="gray", lw=2)
-	ax2.set_xlabel("Frequency")
-	ax2.set_ylabel("Phase Shift [rad]")
-	ax2.set_title("Phase Shift")
-	ax2.legend(loc="upper right")
-
-	fig.suptitle("KID Photon Response")
-
-	plt.show()
 
 def fe55_distribution(x_array, fwhm, x_peaks=[loc1, loc2, loc3], y_peaks=[A, B, C]):
 	sigma = fwhm/2.35482
@@ -226,9 +84,6 @@ def fe55_distribution_animate(fwhm_min, fwhm_max, xmin=5800, xmax=6600, samples=
 
 	writer = animation.PillowWriter(fps=30)
 	anim.save("./fe55spectrum.gif", writer=writer, dpi=50)
-
-#loop = mc.Loop.from_pickle(directory + "/analysis/loop_combined.p")
-#traces = loop.pulses[0].p_trace
 
 def benchmarkEnergies(traces=None):
 
@@ -841,3 +696,161 @@ def compareDist(data1, data2, nbin=300, drawPlot='True'):
 	ax.legend(loc='upper right')
 
 	plt.show()
+
+### UNUSED PLOTTING FUNCTIONS FOR ILLUSTRATION
+def S21(f, fr, Qc=2*10**5, Qi=2*10**5):
+    """
+    Plot S21 magnitude in dB.
+    """
+    Q = 1 / ((1/Qc) + (1/Qi))
+    S = 1 - (Q/Qc) / ( 1 + 2j * Q * (f-fr)/(fr) )
+    return 20*np.log10(abs(S))
+
+def transfer(f, L):
+    """
+    Plot S21 phase in dB. This is was for illustrative purposes
+    and can instead be plotted using Qi and Qc as above.
+    """
+
+    if f == 0:
+        return np.pi/2
+
+    w = 2*np.pi*f
+
+    R = 10**2
+    C1 = 10**-3
+    C2 = 10**-7
+
+    IR = R
+    #IC1 = 1 / (1j*w*C1)
+    IC1 = 0
+    IC2 = 1 / (1j*w*C2)
+    IL = 1j*w*L
+
+    I_p = 1/((1/IL) + (1/IC2))
+
+    I_f = IC1 + I_p
+
+    I = I_f / (IR + I_f)
+
+    return cmath.phase(I)
+
+def findRoot():
+    """
+
+    """
+
+    L1 = 10**-4
+    L2 = L1 * 1.5
+
+    tfunc = np.vectorize(transfer)
+    f_1 = optimize.root_scalar(tfunc, args=(L1), bracket=[0.001, 10**5], method="brentq").root
+    f_2 = optimize.root_scalar(tfunc, args=(L2), bracket=[0.001, 10**5], method="brentq").root
+    x_range = np.linspace(0, 2*f_1, 10**3)
+    y1_range = tfunc(x_range, L1)
+    y2_range = tfunc(x_range, L2)
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    ax.plot(x_range, y1_range+np.pi, lw=3, label="before incidence")
+    ax.plot(x_range, y2_range+np.pi, lw=3, linestyle="dashed", label="on incidence")
+    ax.set_xticks([f_1])
+    ax.set_xticklabels([r"$f_0$"])
+    ax.axvline(x=f_1, color="black", lw=2)
+    ax.axhline(y=tfunc(f_1, L1)+np.pi, xmin=0.1, xmax=0.3, color="black", lw=2)
+    ax.axhline(y=tfunc(f_1, L2)+np.pi, xmin=0.1, xmax=0.3, color="black", lw=2)
+    ax.set_xlabel("Frequency")
+    ax.set_ylabel("Phase Shift [rad]")
+    ax.set_title("KID Photon Response")
+    ax.legend(loc="upper right")
+    plt.show()
+
+def readoutAnimation(samples=1000):
+    fr1 = 5
+    f_spread = 0.001/2
+    fr2 = fr1 - f_spread/8
+
+    f_array = np.linspace(fr1-f_spread, fr1+f_spread, samples)
+    s1_array = S21(f_array, fr1, Qc=1*10**5, Qi=1*10**5)
+    s2_array = 0.5 * S21(f_array, fr2, Qc=4*10**4, Qi=4*10**4)
+
+    f1 = interpolate.interp1d(f_array, s1_array)
+    f2 = interpolate.interp1d(f_array, s2_array)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    #ax.set_ylim(-0.9, 0.1)
+    #ax.set_xlim(fr1-f_spread, fr1+f_spread)
+    ax.set_xticks([fr2, fr1])
+    ax.set_xticklabels([r"$f'$", r"$f_0$"])
+    #ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    ax.plot(f_array, s1_array, lw=3, label="before incidence")
+    ax.plot(f_array, s2_array, linestyle='dashed', lw=3, label="on incidence")
+    ax.axvline(x=fr1, color="black", lw=2)
+    ax.axvline(x=fr2, color="black", linestyle="dashed", lw=2)
+    ax.axhline(y=f1(fr1), xmin=0.6, xmax=0.8, color="black", lw=2)
+    ax.axhline(y=f2(fr1), xmin=0.6, xmax=0.8, color="black", lw=2)
+    ax.set_ylabel("Power [dB]")
+    ax.set_xlabel("Frequency")
+    ax.set_title("KID Photon Response")
+    ax.legend(loc="lower left")
+    plt.show()
+
+def plotDetectorResponse(samples=1000):
+    fig = plt.figure()
+    fig.set_size_inches(27, 10.8, True)
+    ax1 = fig.add_subplot(121)
+    ax2 = fig.add_subplot(122)
+
+    fr1 = 5
+    f_spread = 0.001/2
+    fr2 = fr1 - f_spread/8
+
+    f_array = np.linspace(fr1-f_spread, fr1+f_spread, samples)
+    s1_array = S21(f_array, fr1, Qc=1*10**5, Qi=1*10**5)
+    s2_array = 0.5 * S21(f_array, fr2, Qc=4*10**4, Qi=4*10**4)
+
+    f1 = interpolate.interp1d(f_array, s1_array)
+    f2 = interpolate.interp1d(f_array, s2_array)
+
+    #ax.set_ylim(-0.9, 0.1)
+    #ax.set_xlim(fr1-f_spread, fr1+f_spread)
+    ax1.set_xticks([fr2, fr1])
+    ax1.set_xticklabels([r"${f_r}'$", r"$f_r$"])
+    #ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    ax1.plot(f_array, s1_array, lw=3, label="before incidence")
+    ax1.plot(f_array, s2_array, linestyle='dashed', lw=3, label="on incidence")
+    ax1.axvline(x=fr1, color="black", lw=2)
+    ax1.axvline(x=fr2, color="black", linestyle="dashed", lw=2)
+    ax1.axhline(y=f1(fr1), xmin=0.5, xmax=0.8, color="gray", lw=2)
+    ax1.axhline(y=f2(fr1), xmin=0.5, xmax=0.8, color="gray", lw=2)
+    ax1.set_ylabel("Power [dB]")
+    ax1.set_xlabel("Frequency")
+    ax1.set_title("Dissipation")
+    #ax1.legend(loc="lower left")
+
+    L1 = 10**-4
+    L2 = L1 * 1.5
+
+    tfunc = np.vectorize(transfer)
+    f_1 = optimize.root_scalar(tfunc, args=(L1), bracket=[0.001, 10**5], method="brentq").root
+    f_2 = optimize.root_scalar(tfunc, args=(L2), bracket=[0.001, 10**5], method="brentq").root
+    x_range = np.linspace(0, 2*f_1, samples)
+    y1_range = tfunc(x_range, L1)
+    y2_range = tfunc(x_range, L2)
+
+    ax2.plot(x_range, y1_range+np.pi, lw=3, label="before incidence")
+    ax2.plot(x_range, y2_range+np.pi, lw=3, linestyle="dashed", label="on incidence")
+    ax2.set_xticks([f_2, f_1])
+    ax2.set_xticklabels([r"${f_r}'$", r"$f_r$"])
+    ax2.axvline(x=f_1, color="black", lw=2)
+    ax2.axvline(x=f_2, color="black", lw=2, linestyle="dashed")
+    ax2.axhline(y=tfunc(f_1, L1)+np.pi, xmin=0.1, xmax=0.5, color="gray", lw=2)
+    ax2.axhline(y=tfunc(f_1, L2)+np.pi, xmin=0.1, xmax=0.5, color="gray", lw=2)
+    ax2.set_xlabel("Frequency")
+    ax2.set_ylabel("Phase Shift [rad]")
+    ax2.set_title("Phase Shift")
+    ax2.legend(loc="upper right")
+
+    fig.suptitle("KID Photon Response")
+
+    plt.show()
